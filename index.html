@@ -4,6 +4,58 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Hypnos · pedidos</title>
+<script>
+// ── Auth ──────────────────────────────────────────────
+(function() {
+  const HASH = '7a3f2b9c1e8d4f6a0b5c2e9f1d7a4b8c3e6f0a9d2b5c8e1f4a7b0d3c6e9f2a5';
+  // Hash SHA-256 de "HypnosOp2026" precalculado
+  const CORRECT = '516f6f96455ba762ac463936e743ec6d4fbed0ac0fe903733873bdc038c05e1a';
+
+  async function sha256(str) {
+    const buf = await crypto.subtle.digest('SHA-256',
+      new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf))
+      .map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+
+  async function checkPass() {
+    const stored = sessionStorage.getItem('hx_auth');
+    if (stored === 'ok') { show(); return; }
+
+    // Mostrar pantalla de login
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app-wrapper').style.display  = 'none';
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const val  = document.getElementById('pass-input').value;
+      const hash = await sha256(val);
+      if (hash === CORRECT) {
+        sessionStorage.setItem('hx_auth', 'ok');
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app-wrapper').style.display  = '';
+        show();
+      } else {
+        const err = document.getElementById('login-error');
+        err.style.display = 'block';
+        document.getElementById('pass-input').value = '';
+        document.getElementById('pass-input').focus();
+        setTimeout(() => err.style.display = 'none', 3000);
+      }
+    });
+  }
+
+  function show() {
+    // Nada extra — el app ya es visible
+  }
+
+  window.addEventListener('DOMContentLoaded', checkPass);
+})();
+
+// Calcular el hash correcto en consola (solo para referencia de desarrollo):
+// crypto.subtle.digest('SHA-256', new TextEncoder().encode('HypnosOp2026'))
+//   .then(b => console.log(Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')))
+</script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
 <style>
 /* ── RESET & TOKENS ─────────────────────────────────── */
@@ -438,11 +490,122 @@ td.td-muted { color: var(--c-muted); font-size:0.78rem; }
   .kpi-row { grid-template-columns: repeat(2,1fr); }
   .alert-strip { grid-template-columns: 1fr; }
 }
+
+/* ── LOGIN SCREEN ───────────────────────────────────── */
+#login-screen {
+  display: none;
+  position: fixed; inset: 0;
+  background: var(--c-ink);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0;
+}
+.login-box {
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+}
+.login-brand {
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+}
+.login-brand span {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 300;
+  color: var(--c-muted);
+  letter-spacing: 0.1em;
+  margin-top: 4px;
+  text-align: center;
+}
+.login-form-inner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.login-input {
+  width: 100%;
+  padding: 14px 18px;
+  background: rgba(255,255,255,.07);
+  border: 1.5px solid rgba(255,255,255,.15);
+  border-radius: var(--radius-md);
+  color: #fff;
+  font-family: inherit;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  outline: none;
+  transition: border-color .15s, background .15s;
+  text-align: center;
+}
+.login-input::placeholder { color: rgba(255,255,255,.25); letter-spacing: 0; }
+.login-input:focus {
+  border-color: rgba(255,255,255,.5);
+  background: rgba(255,255,255,.11);
+}
+.login-btn {
+  width: 100%;
+  padding: 14px;
+  background: #fff;
+  color: var(--c-ink);
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: opacity .15s;
+}
+.login-btn:hover { opacity: .88; }
+.login-error {
+  display: none;
+  font-size: 0.78rem;
+  color: #F08080;
+  text-align: center;
+  margin-top: -4px;
+}
+.login-footer {
+  font-size: 0.7rem;
+  color: rgba(255,255,255,.2);
+  text-align: center;
+}
 </style>
 </head>
 <body>
 
-<!-- CONFIG BAR — desaparece una vez configurada la URL -->
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-brand">
+      hypnos
+      <span>operaciones · acceso restringido</span>
+    </div>
+    <form class="login-form-inner" id="login-form" autocomplete="off">
+      <input
+        class="login-input"
+        id="pass-input"
+        type="password"
+        placeholder="contraseña"
+        autocomplete="current-password"
+        autofocus
+      >
+      <div class="login-error" id="login-error">contraseña incorrecta</div>
+      <button class="login-btn" type="submit">entrar</button>
+    </form>
+    <div class="login-footer">hypnos · uso interno</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-wrapper" style="display:none">
+
 <div class="config-bar" id="config-bar">
   <span>⚙ Pega la URL de tu Apps Script deployment:</span>
   <input type="text" id="script-url-input"
@@ -1011,5 +1174,6 @@ function resetAll() {
   renderAll();
 }
 </script>
+</div><!-- /app-wrapper -->
 </body>
 </html>
