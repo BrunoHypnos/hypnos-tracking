@@ -810,7 +810,7 @@ td.td-muted { color: var(--c-muted); font-size:0.78rem; }
 //  CONFIGURACIÓN — CAMBIA ESTA URL POR LA DE TU SCRIPT
 // ─────────────────────────────────────────────────────
 const LS_KEY = 'hypnos_script_url';
-let SCRIPT_URL = localStorage.getItem(LS_KEY) || '';
+let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz4tXuC7UihdAzhLRfD0eJ0Uqy4MF-kIIIl2MV5BCZxRY0to-hv5v6U_DoJXPOEwLkR4A/exec';
 
 // ─────────────────────────────────────────────────────
 //  ESTADO GLOBAL
@@ -825,13 +825,10 @@ let filtroEst  = '';
 //  INIT
 // ─────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-  if (SCRIPT_URL) {
-    document.getElementById('config-bar').style.display = 'none';
-    document.getElementById('script-url-input').value = SCRIPT_URL;
-    fetchData();
-  }
+  document.getElementById('config-bar').style.display = 'none';
+  fetchData();
   // Auto-refresh cada 5 min
-  setInterval(() => { if (SCRIPT_URL) fetchData(); }, 5 * 60 * 1000);
+  setInterval(fetchData, 5 * 60 * 1000);
 });
 
 // ─────────────────────────────────────────────────────
