@@ -486,13 +486,61 @@ td.td-muted { color: var(--c-muted); font-size:0.78rem; }
   white-space: nowrap;
 }
 
-/* Responsive */
-@media (max-width:1100px) { .kpi-row { grid-template-columns: repeat(3,1fr); } }
-@media (max-width:900px)  {
-  .sidebar { display:none; }
-  .kpi-row { grid-template-columns: repeat(2,1fr); }
-  .alert-strip { grid-template-columns: 1fr; }
+/* ── ROW COLORS ─────────────────────────────────────── */
+tbody tr.row-ok       { background: #edf7f0; }
+tbody tr.row-camino   { background: #eaf1f8; }
+tbody tr.row-prep     { background: #f5f3f1; }
+tbody tr.row-problema { background: #fef9e6; }
+tbody tr.row-vencida  { background: #fdeaea; }
+tbody tr.row-sol      { background: #e6f4ea; }
+tbody tr.sku-expand-row { background: #fafaf9; }
+tbody tr.sku-expand-row td { border-top: none; padding-top: 0; }
+
+/* ── EXPAND BUTTON ──────────────────────────────────── */
+.expand-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--c-muted); font-size: 0.65rem;
+  padding: 2px 4px; border-radius: 4px;
+  transition: color .15s, background .15s;
+  line-height: 1;
 }
+.expand-btn:hover { color: var(--c-ink); background: var(--c-beige); }
+.expand-btn.open  { color: var(--c-ink); }
+
+/* ── SOLUCIONADO BUTTON ─────────────────────────────── */
+.sol-btn {
+  background: none; border: 1.5px solid var(--c-border);
+  border-radius: 50%; width: 22px; height: 22px;
+  cursor: pointer; font-size: 0.75rem; line-height: 1;
+  color: var(--c-muted); transition: all .15s;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.sol-btn:hover  { border-color: var(--c-ok); color: var(--c-ok); }
+.sol-btn.sol-on { background: var(--c-ok); border-color: var(--c-ok); color: #fff; }
+
+/* ── SKU DETAIL ROW ─────────────────────────────────── */
+.sku-detail {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 6px 8px 10px;
+}
+.sku-label { font-size: 0.7rem; color: var(--c-muted); font-weight: 500; padding-top: 2px; white-space: nowrap; }
+.sku-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.sku-chip {
+  background: var(--c-beige); color: var(--c-ink);
+  border-radius: 4px; padding: 2px 7px;
+  font-size: 0.72rem; font-weight: 500; font-family: monospace;
+  border: 1px solid var(--c-border);
+}
+
+/* ── TABLE CELL HELPERS ─────────────────────────────── */
+.td-mono    { font-family: monospace; font-size: 0.78rem; }
+.td-nowrap  { white-space: nowrap; }
+.td-truncate{ max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: help; }
+.td-num     { font-variant-numeric: tabular-nums; font-size: 0.82rem; text-align: right; }
+.td-svc     { font-size: 0.72rem; font-weight: 600; letter-spacing: .02em; }
+
+/* Responsive */
+@media (max-width:900px) { .sidebar { display:none; } }
 
 /* ── LOGIN SCREEN ───────────────────────────────────── */
 #login-screen {
@@ -700,94 +748,36 @@ td.td-muted { color: var(--c-muted); font-size:0.78rem; }
   <!-- CONTENT -->
   <main class="content">
 
-    <!-- KPIs -->
-    <div class="kpi-row" id="kpi-row">
-      <div class="kpi-card k-total">
-        <div class="kpi-label">total</div>
-        <div class="kpi-num" id="kn-total">—</div>
-        <div class="kpi-pct">pedidos</div>
-      </div>
-      <div class="kpi-card k-ok">
-        <div class="kpi-label">entregados</div>
-        <div class="kpi-num" id="kn-ok">—</div>
-        <div class="kpi-pct" id="kp-ok">—</div>
-      </div>
-      <div class="kpi-card k-camino">
-        <div class="kpi-label">en camino</div>
-        <div class="kpi-num" id="kn-camino">—</div>
-        <div class="kpi-pct" id="kp-camino">—</div>
-      </div>
-      <div class="kpi-card k-prep">
-        <div class="kpi-label">preparación</div>
-        <div class="kpi-num" id="kn-prep">—</div>
-        <div class="kpi-pct" id="kp-prep">—</div>
-      </div>
-      <div class="kpi-card k-warn">
-        <div class="kpi-label">con problema</div>
-        <div class="kpi-num" id="kn-warn">—</div>
-        <div class="kpi-pct" id="kp-warn">—</div>
-      </div>
-      <div class="kpi-card k-danger">
-        <div class="kpi-label">promesa vencida</div>
-        <div class="kpi-num" id="kn-vencida">—</div>
-        <div class="kpi-pct">sin entregar</div>
-      </div>
-    </div>
-
-    <!-- ALERTAS -->
-    <div class="alert-strip">
-      <div class="alert-pill p-danger">
-        <div class="alert-num" id="an-vencida">—</div>
-        <div class="alert-body">
-          <h4>promesa vencida</h4>
-          <p>Fecha comprometida superada, pedido sin entregar.</p>
-        </div>
-      </div>
-      <div class="alert-pill p-warn">
-        <div class="alert-num" id="an-prob">—</div>
-        <div class="alert-body">
-          <h4>problema activo</h4>
-          <p>Nadie en casa, dirección incorrecta u otra incidencia.</p>
-        </div>
-      </div>
-      <div class="alert-pill p-prep">
-        <div class="alert-num" id="an-prep">—</div>
-        <div class="alert-body">
-          <h4>sin movimiento</h4>
-          <p>Etiqueta generada, pendiente de retiro por Blue.</p>
-        </div>
-      </div>
-    </div>
-
     <!-- TABLA -->
     <div class="table-area">
       <div class="table-header">
         <span class="table-header-left" id="table-count">—</span>
-        <div class="table-header-right">
-          <button class="col-toggle-btn active" data-col="skus" onclick="toggleCol(this,'skus')">SKUs</button>
-          <button class="col-toggle-btn active" data-col="region" onclick="toggleCol(this,'region')">Región</button>
-          <button class="col-toggle-btn active" data-col="colchon" onclick="toggleCol(this,'colchon')">Colchón</button>
-        </div>
       </div>
       <div class="table-scroll">
         <table>
           <thead>
             <tr>
+              <th style="width:32px"></th>
               <th onclick="sortBy('referencia',this)">Referencia <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('tracking',this)">Tracking <span class="sort-icon">↕</span></th>
+              <th>Link</th>
               <th onclick="sortBy('fecha_creacion',this)">Fecha <span class="sort-icon">↕</span></th>
-              <th onclick="sortBy('estado_blue',this)">Estado <span class="sort-icon">↕</span></th>
-              <th>Descripción</th>
               <th onclick="sortBy('promesa_entrega',this)">Promesa <span class="sort-icon">↕</span></th>
-              <th onclick="sortBy('envio_blue',this)">Servicio <span class="sort-icon">↕</span></th>
-              <th onclick="sortBy('comuna_destino',this)">Destino <span class="sort-icon">↕</span></th>
-              <th class="col-region" onclick="sortBy('region_destino',this)">Región <span class="sort-icon">↕</span></th>
-              <th class="col-skus">SKUs</th>
-              <th class="col-colchon" onclick="sortBy('colchon',this)">Colchón <span class="sort-icon">↕</span></th>
-              <th>Tracking</th>
+              <th onclick="sortBy('envio_starkoms',this)">Starkoms <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('envio_blue',this)">Blue <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('region_destino',this)">Región <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('comuna_destino',this)">Comuna <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('total_paid',this)">Total <span class="sort-icon">↕</span></th>
+              <th style="text-align:center">✓ Sol.</th>
+              <th onclick="sortBy('estado_blue',this)">Estado <span class="sort-icon">↕</span></th>
+              <th>Desc. Estado</th>
+              <th>Notas</th>
+              <th>Cómo se solucionó</th>
+              <th onclick="sortBy('colchon',this)">Colchón <span class="sort-icon">↕</span></th>
             </tr>
           </thead>
           <tbody id="tbody">
-            <tr><td colspan="11">
+            <tr><td colspan="17">
               <div class="placeholder">
                 <div class="big">◌</div>
                 <p>Cargando datos…</p>
@@ -1049,10 +1039,53 @@ function promesaHTML(row) {
 }
 
 // ─────────────────────────────────────────────────────
+//  SOLUCIONADO (localStorage override)
+// ─────────────────────────────────────────────────────
+const SOL_KEY = 'hypnos_sol';
+function getSolMap() {
+  try { return JSON.parse(localStorage.getItem(SOL_KEY) || '{}'); } catch { return {}; }
+}
+function isSolucionado(ref) {
+  const map = getSolMap();
+  if (ref in map) return map[ref];  // override local
+  return false;
+}
+function toggleSolucionado(ref) {
+  const map = getSolMap();
+  map[ref] = !isSolucionado(ref);
+  localStorage.setItem(SOL_KEY, JSON.stringify(map));
+  renderAll();
+}
+
+// ─────────────────────────────────────────────────────
+//  SKU EXPAND
+// ─────────────────────────────────────────────────────
+let expandedRows = new Set();
+function toggleExpand(ref) {
+  if (expandedRows.has(ref)) expandedRows.delete(ref);
+  else expandedRows.add(ref);
+  renderAll();
+}
+
+// ─────────────────────────────────────────────────────
+//  ROW COLOR
+// ─────────────────────────────────────────────────────
+function rowClass(r, sol) {
+  if (sol) return 'row-sol';
+  const e = String(r.estado_blue || '').toLowerCase();
+  const ep = estadoPromesa(r);
+  if (ep === 'vencida' && !e.includes('entregado') && !e.includes('devuelto')) return 'row-vencida';
+  if (e.includes('problema')) return 'row-problema';
+  if (e.includes('entregado')) return 'row-ok';
+  if (e.includes('camino'))   return 'row-camino';
+  if (e.includes('preparac') || e.includes('listo') || e.includes('generac')) return 'row-prep';
+  return '';
+}
+
+// ─────────────────────────────────────────────────────
 //  RENDER TABLE
 // ─────────────────────────────────────────────────────
 function renderTable(rows) {
-  // sort
   rows = [...rows].sort((a, b) => {
     let va = getField(a, sortCol) || '';
     let vb = getField(b, sortCol) || '';
@@ -1060,6 +1093,9 @@ function renderTable(rows) {
       const da = parsePromesa(va) || new Date(va) || new Date(0);
       const db = parsePromesa(vb) || new Date(vb) || new Date(0);
       return sortAsc ? da - db : db - da;
+    }
+    if (sortCol === 'total_paid') {
+      return sortAsc ? (Number(va)||0) - (Number(vb)||0) : (Number(vb)||0) - (Number(va)||0);
     }
     va = String(va).toLowerCase();
     vb = String(vb).toLowerCase();
@@ -1070,71 +1106,82 @@ function renderTable(rows) {
 
   const tbody = document.getElementById('tbody');
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="11"><div class="placeholder">
+    tbody.innerHTML = `<tr><td colspan="17"><div class="placeholder">
       <div class="big" style="opacity:.2">◌</div>
       <p>Sin resultados para los filtros actuales.</p>
     </div></td></tr>`;
     return;
   }
 
-  const hC = hiddenCols;
+  const COLS = 17;
   tbody.innerHTML = rows.map(r => {
-    const ref    = r.referencia || r.id || '—';
-    const fecha  = String(getField(r,'fecha_creacion')||'').slice(0,16);
-    const svc    = getField(r,'envio_blue','envio_blue_raw') || '—';
-    const dest   = r.comuna_destino || '—';
-    const region = getField(r,'region_destino','Region_destino') || '—';
-    const skus   = r.lista_skus || r.skus || '—';
-    const colchon= r.colchon || '—';
-    const link   = r.link_seguimiento || '';
-    const track  = r.tracking || '—';
-    const desc   = r.desc_estado || '—';
+    const ref     = r.referencia || r.id || '—';
+    const track   = r.tracking || '—';
+    const link    = r.link_seguimiento || r.link_se || '';
+    const fecha   = String(getField(r,'fecha_creacion')||'').slice(0,16);
+    const promesa = r.promesa_entrega || '—';
+    const stark   = r.envio_starkoms || '—';
+    const blue    = getField(r,'envio_blue') || '—';
+    const region  = getField(r,'region_destino','Region_destino') || '—';
+    const comuna  = r.comuna_destino || '—';
+    const total   = r.total_paid ? '$'+Number(r.total_paid).toLocaleString('es-CL') : '—';
+    const sol     = isSolucionado(ref);
+    const estado  = r.estado_blue || '—';
+    const desc    = r.desc_estado || '—';
+    const notas   = r.notas || '—';
+    const como    = r.como_se_soluciono || '—';
+    const colchon = r.colchon || '—';
+    const skus    = r.lista_skus || r.skus || '—';
+    const expanded = expandedRows.has(ref);
 
-    return `<tr>
-      <td class="td-ref">${ref}</td>
-      <td class="td-muted">${fecha}</td>
-      <td>${badge(r.estado_blue)}</td>
-      <td class="td-muted">${desc}</td>
-      <td>${promesaHTML(r)}</td>
-      <td style="font-size:.78rem;font-weight:500">${svc}</td>
-      <td>${dest}</td>
-      <td class="col-region"${hC.has('region')?' style="display:none"':''}>${region}</td>
-      <td class="col-skus"${hC.has('skus')?' style="display:none"':''}>
-        <span class="sku-text" title="${skus}">${skus}</span>
+    const mainRow = `<tr class="${rowClass(r, sol)}" data-ref="${esc(ref)}">
+      <td style="text-align:center;padding:0 4px">
+        <button class="expand-btn${expanded?' open':''}" onclick="toggleExpand('${esc(ref)}')" title="Ver SKUs">${expanded?'▼':'▶'}</button>
       </td>
-      <td class="col-colchon"${hC.has('colchon')?' style="display:none"':''} style="font-size:.78rem">${colchon}</td>
-      <td>${link
-        ? `<a class="track-link" href="${link}" target="_blank">${track}</a>`
-        : `<span class="td-muted">${track}</span>`
-      }</td>
+      <td class="td-ref">${esc(ref)}</td>
+      <td class="td-mono">${esc(track)}</td>
+      <td>${link ? `<a class="track-link" href="${link}" target="_blank">🔗</a>` : '<span class="td-muted">—</span>'}</td>
+      <td class="td-muted td-nowrap">${esc(fecha)}</td>
+      <td>${promesaHTML(r)}</td>
+      <td class="td-svc">${esc(stark)}</td>
+      <td class="td-svc">${esc(blue)}</td>
+      <td class="td-muted">${esc(region)}</td>
+      <td>${esc(comuna)}</td>
+      <td class="td-num">${total}</td>
+      <td style="text-align:center">
+        <button class="sol-btn${sol?' sol-on':''}" onclick="toggleSolucionado('${esc(ref)}')" title="${sol?'Marcar como pendiente':'Marcar como solucionado'}">${sol?'✓':'○'}</button>
+      </td>
+      <td>${badge(estado)}</td>
+      <td class="td-truncate" title="${esc(desc)}">${esc(desc)}</td>
+      <td class="td-truncate" title="${esc(notas)}">${esc(notas)}</td>
+      <td class="td-truncate" title="${esc(como)}">${esc(como)}</td>
+      <td class="td-muted">${esc(colchon)}</td>
     </tr>`;
+
+    const skuRow = expanded ? `<tr class="sku-expand-row">
+      <td></td>
+      <td colspan="16">
+        <div class="sku-detail">
+          <span class="sku-label">SKUs:</span>
+          <span class="sku-chips">${String(skus).split(',').map(s=>s.trim()).filter(Boolean).map(s=>`<span class="sku-chip">${esc(s)}</span>`).join('')}</span>
+        </div>
+      </td>
+    </tr>` : '';
+
+    return mainRow + skuRow;
   }).join('');
-
-  // sync hidden cols en encabezado
-  syncHeaderCols();
 }
+
+function esc(str) {
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function syncHeaderCols() {}
 
 // ─────────────────────────────────────────────────────
-//  TOGGLE COLUMNAS
+//  TOGGLE COLUMNAS (legacy no-op)
 // ─────────────────────────────────────────────────────
-function toggleCol(btn, col) {
-  if (hiddenCols.has(col)) {
-    hiddenCols.delete(col);
-    btn.classList.add('active');
-  } else {
-    hiddenCols.add(col);
-    btn.classList.remove('active');
-  }
-  syncHeaderCols();
-  renderAll();
-}
-
-function syncHeaderCols() {
-  ['region','skus','colchon'].forEach(col => {
-    const ths = document.querySelectorAll(`.col-${col}`);
-    ths.forEach(el => el.style.display = hiddenCols.has(col) ? 'none' : '');
-  });
-}
+function toggleCol() {}
 
 // ─────────────────────────────────────────────────────
 //  SIDEBAR FILTRO ESTADO
