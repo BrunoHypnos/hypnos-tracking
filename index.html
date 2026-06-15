@@ -821,7 +821,6 @@ let filtroEst  = '';
 //  INIT
 // ─────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('config-bar').style.display = 'none';
   // Auto-refresh cada 5 min (el primer fetch lo dispara show() en el módulo de auth)
   setInterval(fetchData, 5 * 60 * 1000);
 });
@@ -830,12 +829,7 @@ window.addEventListener('DOMContentLoaded', () => {
 //  URL CONFIG
 // ─────────────────────────────────────────────────────
 function saveURL() {
-  const val = document.getElementById('script-url-input').value.trim();
-  if (!val) return;
-  SCRIPT_URL = val;
-  localStorage.setItem(LS_KEY, val);
-  document.getElementById('config-bar').style.display = 'none';
-  fetchData();
+  // Función legacy — ya no se usa (URL hardcodeada)
 }
 
 // ─────────────────────────────────────────────────────
