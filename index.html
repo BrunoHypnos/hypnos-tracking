@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hypnos · pedidos</title>
+<script>
+// ── Auth ──────────────────────────────────────────────
+(function() {
+  const HASH = '7a3f2b9c1e8d4f6a0b5c2e9f1d7a4b8c3e6f0a9d2b5c8e1f4a7b0d3c6e9f2a5';
+  // Hash SHA-256 de "HypnosOp2026" precalculado
+  const CORRECT = '516f6f96455ba762ac463936e743ec6d4fbed0ac0fe903733873bdc038c05e1a';
+
+  async function sha256(str) {
+    const buf = await crypto.subtle.digest('SHA-256',
+      new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf))
+      .map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+
+  async function checkPass() {
+    const stored = sessionStorage.getItem('hx_auth');
+    if (stored === 'ok') { show(); return; }
+
+    // Mostrar pantalla de login
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app-wrapper').style.display  = 'none';
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const val  = document.getElementById('pass-input').value;
+      const hash = await sha256(val);
+      if (hash === CORRECT) {
+        sessionStorage.setItem('hx_auth', 'ok');
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app-wrapper').style.display  = '';
+        show();
+      } else {
+        const err = document.getElementById('login-error');
+        err.style.display = 'block';
+        document.getElementById('pass-input').value = '';
+        document.getElementById('pass-input').focus();
+        setTimeout(() => err.style.display = 'none', 3000);
+      }
+    });
+  }
+
+  function show() {
+    document.getElementById('app-wrapper').style.display = '';
+    // fetchData puede no estar definida aún (se carga en el segundo script),
+    // así que la invocamos de forma diferida para asegurarnos.
+    setTimeout(() => { if (typeof fetchData === 'function') fetchData(); }, 0);
+  }
+
+  window.addEventListener('DOMContentLoaded', checkPass);
+})();
+
+// Calcular el hash correcto en consola (solo para referencia de desarrollo):
+// crypto.subtle.digest('SHA-256', new TextEncoder().encode('HypnosOp2026'))
+//   .then(b => console.log(Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')))
+</script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+/* ── RESET & TOKENS ─────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --c-bg:       #F5F2EF;
+  --c-surface:  #FFFFFF;
+  --c-ink:      #28211C;
+  --c-muted:    #9C948F;
+  --c-border:   #E0DBD7;
+  --c-beige:    #EAE6E3;
+
+  --c-ok:       #3D6B4F;  --c-ok-bg:    #EBF3EE;
+  --c-camino:   #2E5F8A;  --c-camino-bg:#EBF1F8;
+  --c-prep:     #6B6460;  --c-prep-bg:  #F2EFED;
+  --c-warn:     #8B6914;  --c-warn-bg:  #FBF5E6;
+  --c-danger:   #9B2C2C;  --c-danger-bg:#FDEAEA;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+
+  --shadow-sm: 0 1px 4px rgba(40,33,28,.07);
+  --shadow-md: 0 4px 20px rgba(40,33,28,.10);
+}
+
+html { font-size: 14px; }
+body {
+  font-family: 'DM Sans', Arial, sans-serif;
+  background: var(--c-bg);
+  color: var(--c-ink);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── TOPBAR ─────────────────────────────────────────── */
+.topbar {
+  background: var(--c-ink);
+  padding: 0 32px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.brand { display: flex; align-items: baseline; gap: 12px; }
+.brand-name {
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: #fff;
+  letter-spacing: -0.3px;
+}
+.brand-sub {
+  font-size: 0.72rem;
+  font-weight: 300;
+  color: var(--c-muted);
+  letter-spacing: 0.06em;
+}
+.topbar-right { display: flex; align-items: center; gap: 20px; }
+#status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--c-muted); flex-shrink: 0;
+  transition: background .4s;
+}
+#status-dot.ok     { background: #4CAF50; box-shadow: 0 0 6px rgba(76,175,80,.5); }
+#status-dot.error  { background: var(--c-danger); }
+#status-dot.loading { background: var(--c-warn); animation: pulse .8s infinite alternate; }
+@keyframes pulse { to { opacity: .4; } }
+
+#status-text { font-size: 0.75rem; color: var(--c-muted); }
+.btn-refresh {
+  padding: 7px 16px;
+  border: 1.5px solid rgba(255,255,255,.2);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: rgba(255,255,255,.7);
+  font-family: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.btn-refresh:hover { border-color: rgba(255,255,255,.6); color: #fff; }
+
+/* ── LAYOUT ─────────────────────────────────────────── */
+.app { display: flex; flex: 1; overflow: hidden; height: calc(100vh - 56px); }
+
+/* ── SIDEBAR ────────────────────────────────────────── */
+.sidebar {
+  width: 232px;
+  flex-shrink: 0;
+  background: var(--c-surface);
+  border-right: 1px solid var(--c-border);
+  overflow-y: auto;
+  padding: 24px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.sidebar-section { padding: 0 16px; margin-bottom: 28px; }
+.sidebar-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+  margin-bottom: 10px;
+  padding: 0 4px;
+}
+.filter-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--c-ink);
+  font-family: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background .12s;
+  text-align: left;
+}
+.filter-btn:hover { background: var(--c-bg); }
+.filter-btn.active { background: var(--c-ink); color: #fff; }
+.filter-btn.active .chip { background: rgba(255,255,255,.2); color: #fff; }
+.filter-btn .label { display: flex; align-items: center; gap: 8px; }
+.filter-btn .dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.chip {
+  font-size: 0.7rem; font-weight: 600;
+  background: var(--c-bg); border-radius: 20px;
+  padding: 2px 8px; color: var(--c-muted);
+  min-width: 28px; text-align: center;
+}
+
+.search-sidebar {
+  padding: 0 16px 20px;
+}
+.search-sidebar input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.82rem;
+  background: var(--c-bg);
+  color: var(--c-ink);
+  outline: none;
+  transition: border-color .15s;
+}
+.search-sidebar input::placeholder { color: var(--c-muted); }
+.search-sidebar input:focus { border-color: var(--c-ink); background: var(--c-surface); }
+
+/* filtros adicionales */
+.filter-select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.82rem;
+  background: var(--c-bg);
+  color: var(--c-ink);
+  outline: none;
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: border-color .15s;
+}
+.filter-select:focus { border-color: var(--c-ink); }
+
+.btn-clear {
+  width: 100%;
+  padding: 9px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: var(--c-muted);
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.btn-clear:hover { border-color: var(--c-ink); color: var(--c-ink); }
+
+/* ── MAIN CONTENT ───────────────────────────────────── */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 28px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── KPI ROW ────────────────────────────────────────── */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+.kpi-card {
+  background: var(--c-surface);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  border: 1.5px solid transparent;
+  transition: box-shadow .15s, border-color .15s, transform .15s;
+  cursor: default;
+}
+.kpi-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.kpi-card.highlight { border-color: var(--c-ink); }
+.kpi-card .kpi-label {
+  font-size: 0.65rem; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--c-muted); margin-bottom: 8px;
+}
+.kpi-card .kpi-num {
+  font-size: 2rem; font-weight: 600;
+  letter-spacing: -1.5px; line-height: 1;
+}
+.kpi-card .kpi-pct { font-size: 0.72rem; color: var(--c-muted); margin-top: 4px; }
+
+.kpi-card.k-ok       .kpi-num { color: var(--c-ok); }
+.kpi-card.k-camino   .kpi-num { color: var(--c-camino); }
+.kpi-card.k-prep     .kpi-num { color: var(--c-prep); }
+.kpi-card.k-warn     .kpi-num { color: var(--c-warn); }
+.kpi-card.k-danger   .kpi-num { color: var(--c-danger); }
+.kpi-card.k-total    .kpi-num { color: var(--c-ink); }
+
+/* ── ALERT STRIP ────────────────────────────────────── */
+.alert-strip {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 12px;
+}
+.alert-pill {
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.alert-pill.p-danger  { background: var(--c-danger-bg); }
+.alert-pill.p-warn    { background: var(--c-warn-bg); }
+.alert-pill.p-prep    { background: var(--c-prep-bg); }
+.alert-pill .alert-num {
+  font-size: 1.8rem; font-weight: 600;
+  letter-spacing: -1px; line-height: 1; flex-shrink: 0;
+}
+.alert-pill.p-danger .alert-num { color: var(--c-danger); }
+.alert-pill.p-warn   .alert-num { color: var(--c-warn); }
+.alert-pill.p-prep   .alert-num { color: var(--c-prep); }
+.alert-body h4 { font-size: 0.82rem; font-weight: 600; margin-bottom: 2px; }
+.alert-body p  { font-size: 0.75rem; color: var(--c-muted); line-height: 1.4; }
+
+/* ── TABLE AREA ─────────────────────────────────────── */
+.table-area {
+  background: var(--c-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  flex: 1;
+}
+.table-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--c-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.table-header-left { font-size: 0.78rem; color: var(--c-muted); }
+.table-header-right { display: flex; gap: 8px; }
+
+.col-toggle-btn {
+  padding: 6px 12px;
+  border: 1.5px solid var(--c-border);
+  border-radius: 6px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--c-muted);
+  cursor: pointer;
+  transition: all .15s;
+}
+.col-toggle-btn:hover { border-color: var(--c-ink); color: var(--c-ink); }
+.col-toggle-btn.active { background: var(--c-ink); color: #fff; border-color: var(--c-ink); }
+
+.table-scroll { overflow-x: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+thead th {
+  background: var(--c-beige);
+  color: var(--c-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 11px 14px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid var(--c-border);
+  transition: color .12s;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+thead th:hover { color: var(--c-ink); }
+thead th.sorted { color: var(--c-ink); }
+.sort-icon { margin-left: 3px; opacity: .35; font-size: .9em; }
+thead th.sorted .sort-icon { opacity: 1; }
+
+tbody tr {
+  border-bottom: 1px solid var(--c-border);
+  transition: background .1s;
+}
+tbody tr:last-child { border: none; }
+tbody tr:hover { background: #FAFAF8; }
+td { padding: 11px 14px; vertical-align: middle; }
+
+/* Badges */
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 20px;
+  font-size: 0.7rem; font-weight: 600; white-space: nowrap;
+}
+.badge::before { content:''; width:6px; height:6px; border-radius:50%; }
+.b-ok      { background:var(--c-ok-bg);      color:var(--c-ok);     }
+.b-ok::before { background: var(--c-ok); }
+.b-camino  { background:var(--c-camino-bg);  color:var(--c-camino); }
+.b-camino::before { background: var(--c-camino); }
+.b-prep    { background:var(--c-prep-bg);    color:var(--c-prep);   }
+.b-prep::before { background: var(--c-prep); }
+.b-warn    { background:var(--c-warn-bg);    color:var(--c-warn);   }
+.b-warn::before { background: var(--c-warn); }
+.b-danger  { background:var(--c-danger-bg);  color:var(--c-danger); }
+.b-danger::before { background: var(--c-danger); }
+
+/* Promesa */
+.p-ok     { color: var(--c-ok);     font-weight:500; }
+.p-riesgo { color: var(--c-warn);   font-weight:500; }
+.p-late   { color: var(--c-danger); font-weight:600; }
+.p-none   { color: var(--c-muted); }
+
+/* Link tracking */
+.track-link {
+  color: var(--c-camino); font-size:0.78rem;
+  text-decoration:none; font-weight:500;
+}
+.track-link:hover { text-decoration:underline; }
+
+.sku-text {
+  max-width: 160px; display:block;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  font-size:0.75rem; color:var(--c-muted);
+}
+
+td.td-ref { font-weight:500; }
+td.td-muted { color: var(--c-muted); font-size:0.78rem; }
+
+/* Empty / loading */
+.placeholder {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--c-muted);
+}
+.placeholder .big { font-size:2rem; margin-bottom:10px; opacity:.3; }
+.placeholder p { font-size:0.85rem; line-height:1.6; }
+
+/* Spinner */
+.spinner {
+  display: inline-block;
+  width: 18px; height: 18px;
+  border: 2px solid var(--c-border);
+  border-top-color: var(--c-ink);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* URL config */
+.config-bar {
+  background: var(--c-warn-bg);
+  border-bottom: 1px solid #e8d48a;
+  padding: 10px 32px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 0.8rem;
+  color: var(--c-warn);
+}
+.config-bar input {
+  flex: 1; padding: 7px 12px;
+  border: 1.5px solid #e8d48a;
+  border-radius: var(--radius-sm);
+  font-family: inherit; font-size: 0.8rem;
+  background: #fff; color: var(--c-ink);
+  outline: none;
+}
+.config-bar input:focus { border-color: var(--c-warn); }
+.btn-save-url {
+  padding: 7px 16px;
+  background: var(--c-warn);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Responsive */
+@media (max-width:1100px) { .kpi-row { grid-template-columns: repeat(3,1fr); } }
+@media (max-width:900px)  {
+  .sidebar { display:none; }
+  .kpi-row { grid-template-columns: repeat(2,1fr); }
+  .alert-strip { grid-template-columns: 1fr; }
+}
+
+/* ── LOGIN SCREEN ───────────────────────────────────── */
+#login-screen {
+  display: none;
+  position: fixed; inset: 0;
+  background: var(--c-ink);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0;
+}
+.login-box {
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+}
+.login-brand {
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+}
+.login-brand span {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 300;
+  color: var(--c-muted);
+  letter-spacing: 0.1em;
+  margin-top: 4px;
+  text-align: center;
+}
+.login-form-inner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.login-input {
+  width: 100%;
+  padding: 14px 18px;
+  background: rgba(255,255,255,.07);
+  border: 1.5px solid rgba(255,255,255,.15);
+  border-radius: var(--radius-md);
+  color: #fff;
+  font-family: inherit;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  outline: none;
+  transition: border-color .15s, background .15s;
+  text-align: center;
+}
+.login-input::placeholder { color: rgba(255,255,255,.25); letter-spacing: 0; }
+.login-input:focus {
+  border-color: rgba(255,255,255,.5);
+  background: rgba(255,255,255,.11);
+}
+.login-btn {
+  width: 100%;
+  padding: 14px;
+  background: #fff;
+  color: var(--c-ink);
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: opacity .15s;
+}
+.login-btn:hover { opacity: .88; }
+.login-error {
+  display: none;
+  font-size: 0.78rem;
+  color: #F08080;
+  text-align: center;
+  margin-top: -4px;
+}
+.login-footer {
+  font-size: 0.7rem;
+  color: rgba(255,255,255,.2);
+  text-align: center;
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-brand">
+      hypnos
+      <span>operaciones · acceso restringido</span>
+    </div>
+    <form class="login-form-inner" id="login-form" autocomplete="off">
+      <input
+        class="login-input"
+        id="pass-input"
+        type="password"
+        placeholder="contraseña"
+        autocomplete="current-password"
+        autofocus
+      >
+      <div class="login-error" id="login-error">contraseña incorrecta</div>
+      <button class="login-btn" type="submit">entrar</button>
+    </form>
+    <div class="login-footer">hypnos · uso interno</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-wrapper" style="display:none">
+
+<div class="config-bar" id="config-bar">
+  <span>⚙ Pega la URL de tu Apps Script deployment:</span>
+  <input type="text" id="script-url-input"
+    placeholder="https://script.google.com/macros/s/…/exec">
+  <button class="btn-save-url" onclick="saveURL()">guardar y cargar</button>
+</div>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-name">hypnos</span>
+    <span class="brand-sub">operaciones · pedidos</span>
+  </div>
+  <div class="topbar-right">
+    <span id="status-dot"></span>
+    <span id="status-text">sin datos</span>
+    <button class="btn-refresh" onclick="fetchData()">↻ actualizar</button>
+  </div>
+</header>
+
+<!-- APP LAYOUT -->
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <div class="search-sidebar">
+      <input type="text" id="search" placeholder="buscar…" oninput="renderAll()">
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">estado</div>
+      <button class="filter-btn active" data-est="" onclick="setFiltroEstado(this,'')">
+        <span class="label"><span class="dot" style="background:var(--c-muted)"></span>todos</span>
+        <span class="chip" id="chip-total">—</span>
+      </button>
+      <button class="filter-btn" data-est="Entregado" onclick="setFiltroEstado(this,'Entregado')">
+        <span class="label"><span class="dot" style="background:var(--c-ok)"></span>entregado</span>
+        <span class="chip" id="chip-ok">—</span>
+      </button>
+      <button class="filter-btn" data-est="En Camino" onclick="setFiltroEstado(this,'En Camino')">
+        <span class="label"><span class="dot" style="background:var(--c-camino)"></span>en camino</span>
+        <span class="chip" id="chip-camino">—</span>
+      </button>
+      <button class="filter-btn" data-est="En Preparación" onclick="setFiltroEstado(this,'En Preparación')">
+        <span class="label"><span class="dot" style="background:var(--c-prep)"></span>preparación</span>
+        <span class="chip" id="chip-prep">—</span>
+      </button>
+      <button class="filter-btn" data-est="Problema" onclick="setFiltroEstado(this,'Problema')">
+        <span class="label"><span class="dot" style="background:var(--c-warn)"></span>problema</span>
+        <span class="chip" id="chip-warn">—</span>
+      </button>
+      <button class="filter-btn" data-est="Devuelto" onclick="setFiltroEstado(this,'Devuelto')">
+        <span class="label"><span class="dot" style="background:var(--c-danger)"></span>devuelto</span>
+        <span class="chip" id="chip-dev">—</span>
+      </button>
+      <button class="filter-btn" data-est="__vencida__" onclick="setFiltroEstado(this,'__vencida__')">
+        <span class="label"><span class="dot" style="background:var(--c-danger)"></span>promesa vencida</span>
+        <span class="chip" id="chip-vencida">—</span>
+      </button>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">servicio</div>
+      <select class="filter-select" id="f-svc" onchange="renderAll()">
+        <option value="">todos</option>
+        <option value="SAMEDAY">SameDay</option>
+        <option value="PRIORITY">Priority</option>
+        <option value="EXPRESS">Express</option>
+      </select>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">región</div>
+      <select class="filter-select" id="f-region" onchange="renderAll()">
+        <option value="">todas</option>
+      </select>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">promesa</div>
+      <select class="filter-select" id="f-promesa" onchange="renderAll()">
+        <option value="">todas</option>
+        <option value="ok">a tiempo</option>
+        <option value="riesgo">vence hoy</option>
+        <option value="vencida">vencida</option>
+      </select>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="btn-clear" onclick="resetAll()">limpiar filtros</button>
+    </div>
+
+  </aside>
+
+  <!-- CONTENT -->
+  <main class="content">
+
+    <!-- KPIs -->
+    <div class="kpi-row" id="kpi-row">
+      <div class="kpi-card k-total">
+        <div class="kpi-label">total</div>
+        <div class="kpi-num" id="kn-total">—</div>
+        <div class="kpi-pct">pedidos</div>
+      </div>
+      <div class="kpi-card k-ok">
+        <div class="kpi-label">entregados</div>
+        <div class="kpi-num" id="kn-ok">—</div>
+        <div class="kpi-pct" id="kp-ok">—</div>
+      </div>
+      <div class="kpi-card k-camino">
+        <div class="kpi-label">en camino</div>
+        <div class="kpi-num" id="kn-camino">—</div>
+        <div class="kpi-pct" id="kp-camino">—</div>
+      </div>
+      <div class="kpi-card k-prep">
+        <div class="kpi-label">preparación</div>
+        <div class="kpi-num" id="kn-prep">—</div>
+        <div class="kpi-pct" id="kp-prep">—</div>
+      </div>
+      <div class="kpi-card k-warn">
+        <div class="kpi-label">con problema</div>
+        <div class="kpi-num" id="kn-warn">—</div>
+        <div class="kpi-pct" id="kp-warn">—</div>
+      </div>
+      <div class="kpi-card k-danger">
+        <div class="kpi-label">promesa vencida</div>
+        <div class="kpi-num" id="kn-vencida">—</div>
+        <div class="kpi-pct">sin entregar</div>
+      </div>
+    </div>
+
+    <!-- ALERTAS -->
+    <div class="alert-strip">
+      <div class="alert-pill p-danger">
+        <div class="alert-num" id="an-vencida">—</div>
+        <div class="alert-body">
+          <h4>promesa vencida</h4>
+          <p>Fecha comprometida superada, pedido sin entregar.</p>
+        </div>
+      </div>
+      <div class="alert-pill p-warn">
+        <div class="alert-num" id="an-prob">—</div>
+        <div class="alert-body">
+          <h4>problema activo</h4>
+          <p>Nadie en casa, dirección incorrecta u otra incidencia.</p>
+        </div>
+      </div>
+      <div class="alert-pill p-prep">
+        <div class="alert-num" id="an-prep">—</div>
+        <div class="alert-body">
+          <h4>sin movimiento</h4>
+          <p>Etiqueta generada, pendiente de retiro por Blue.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLA -->
+    <div class="table-area">
+      <div class="table-header">
+        <span class="table-header-left" id="table-count">—</span>
+        <div class="table-header-right">
+          <button class="col-toggle-btn active" data-col="skus" onclick="toggleCol(this,'skus')">SKUs</button>
+          <button class="col-toggle-btn active" data-col="region" onclick="toggleCol(this,'region')">Región</button>
+          <button class="col-toggle-btn active" data-col="colchon" onclick="toggleCol(this,'colchon')">Colchón</button>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="sortBy('referencia',this)">Referencia <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('fecha_creacion',this)">Fecha <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('estado_blue',this)">Estado <span class="sort-icon">↕</span></th>
+              <th>Descripción</th>
+              <th onclick="sortBy('promesa_entrega',this)">Promesa <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('envio_blue',this)">Servicio <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('comuna_destino',this)">Destino <span class="sort-icon">↕</span></th>
+              <th class="col-region" onclick="sortBy('region_destino',this)">Región <span class="sort-icon">↕</span></th>
+              <th class="col-skus">SKUs</th>
+              <th class="col-colchon" onclick="sortBy('colchon',this)">Colchón <span class="sort-icon">↕</span></th>
+              <th>Tracking</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="11">
+              <div class="placeholder">
+                <div class="big">◌</div>
+                <p>Cargando datos…</p>
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────
+//  CONFIGURACIÓN — CAMBIA ESTA URL POR LA DE TU SCRIPT
+// ─────────────────────────────────────────────────────
+const LS_KEY = 'hypnos_script_url';
+let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbywHBsHQ74MwI9JAsDGqWkaIepW9wBD5XqZisY-pDpFIBkkSwnIfuj7iv7PrgcKNTk1Fw/exec';
+
+// ─────────────────────────────────────────────────────
+//  ESTADO GLOBAL
+// ─────────────────────────────────────────────────────
+let DATA_RAW = [];      // todos los pedidos
+let sortCol  = 'fecha_creacion';
+let sortAsc  = false;
+let hiddenCols = new Set();
+let filtroEst  = '';
+
+// ─────────────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('config-bar').style.display = 'none';
+  // Auto-refresh cada 5 min (el primer fetch lo dispara show() en el módulo de auth)
+  setInterval(fetchData, 5 * 60 * 1000);
+});
+
+// ─────────────────────────────────────────────────────
+//  URL CONFIG
+// ─────────────────────────────────────────────────────
+function saveURL() {
+  const val = document.getElementById('script-url-input').value.trim();
+  if (!val) return;
+  SCRIPT_URL = val;
+  localStorage.setItem(LS_KEY, val);
+  document.getElementById('config-bar').style.display = 'none';
+  fetchData();
+}
+
+// ─────────────────────────────────────────────────────
+//  FETCH
+// ─────────────────────────────────────────────────────
+function setStatus(state, text) {
+  const dot = document.getElementById('status-dot');
+  dot.className = state;
+  document.getElementById('status-text').textContent = text;
+}
+
+async function fetchData() {
+  if (!SCRIPT_URL) return;
+  setStatus('loading', 'cargando…');
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = `<tr><td colspan="11"><div class="placeholder">
+    <div><span class="spinner"></span>conectando con Google Sheets…</div>
+  </div></td></tr>`;
+
+  try {
+    const res  = await fetch(SCRIPT_URL);
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || 'Error en el script');
+
+    DATA_RAW = json.data;
+    const now = new Date().toLocaleString('es-CL', {
+      hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'
+    });
+    setStatus('ok', `actualizado ${now} · ${DATA_RAW.length} registros`);
+    populateRegionFilter();
+    renderAll();
+  } catch(e) {
+    setStatus('error', 'error al cargar');
+    tbody.innerHTML = `<tr><td colspan="11"><div class="placeholder">
+      <div class="big">⚠</div>
+      <p>No se pudo conectar.<br><small style="opacity:.6">${e.message}</small></p>
+    </div></td></tr>`;
+  }
+}
+
+// ─────────────────────────────────────────────────────
+//  HELPERS FECHA / PROMESA
+// ─────────────────────────────────────────────────────
+function parsePromesa(str) {
+  if (!str) return null;
+  // DD-MM-YYYY o YYYY-MM-DD
+  if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
+    const [d,m,y] = str.split('-');
+    return new Date(+y, +m-1, +d);
+  }
+  const d = new Date(str);
+  return isNaN(d) ? null : d;
+}
+
+function todayDate() {
+  const t = new Date();
+  return new Date(t.getFullYear(), t.getMonth(), t.getDate());
+}
+
+function estadoPromesa(row) {
+  const entregados = ['entregado','entregado punto blue','devuelto'];
+  const est = String(row.estado_blue || '').toLowerCase();
+  if (entregados.some(e => est.includes(e))) return 'ok';
+  const p = parsePromesa(row.promesa_entrega);
+  if (!p) return 'ok';
+  const hoy = todayDate();
+  if (p < hoy) return 'vencida';
+  if (p.getTime() === hoy.getTime()) return 'riesgo';
+  return 'ok';
+}
+
+function getField(row, ...keys) {
+  for (const k of keys) {
+    const val = row[k] ?? row[k.toLowerCase()] ?? row[k.replace(/_/g,' ')];
+    if (val !== undefined && val !== '') return val;
+  }
+  return '';
+}
+
+// ─────────────────────────────────────────────────────
+//  POPULATE REGION FILTER
+// ─────────────────────────────────────────────────────
+function populateRegionFilter() {
+  const sel = document.getElementById('f-region');
+  const current = sel.value;
+  const regiones = [...new Set(DATA_RAW.map(r =>
+    getField(r,'region_destino','Region_destino') || ''
+  ).filter(Boolean))].sort();
+
+  sel.innerHTML = '<option value="">todas</option>' +
+    regiones.map(r => `<option value="${r}">${r}</option>`).join('');
+  sel.value = current;
+}
+
+// ─────────────────────────────────────────────────────
+//  RENDER ALL
+// ─────────────────────────────────────────────────────
+function renderAll() {
+  const filtered = applyFilters();
+  updateKPIs(filtered);
+  renderTable(filtered);
+}
+
+// ─────────────────────────────────────────────────────
+//  FILTROS
+// ─────────────────────────────────────────────────────
+function applyFilters() {
+  const q       = document.getElementById('search').value.toLowerCase().trim();
+  const fSvc    = document.getElementById('f-svc').value;
+  const fRegion = document.getElementById('f-region').value;
+  const fProm   = document.getElementById('f-promesa').value;
+
+  return DATA_RAW.filter(r => {
+    const est    = String(r.estado_blue || '').toLowerCase();
+    const svc    = String(getField(r,'envio_blue','envio_blue_raw') || '').toUpperCase();
+    const region = String(getField(r,'region_destino','Region_destino') || '');
+    const ep     = estadoPromesa(r);
+
+    // filtro estado (sidebar)
+    if (filtroEst === '__vencida__') { if (ep !== 'vencida') return false; }
+    else if (filtroEst === 'Entregado') {
+      if (!(est.includes('entregado'))) return false;
+    }
+    else if (filtroEst === 'Problema') {
+      if (!est.includes('problema')) return false;
+    }
+    else if (filtroEst && !est.includes(filtroEst.toLowerCase())) return false;
+
+    if (fSvc    && svc !== fSvc)            return false;
+    if (fRegion && region !== fRegion)      return false;
+    if (fProm   && ep !== fProm)            return false;
+
+    if (q) {
+      const haystack = [
+        r.referencia, r.tracking, r.lista_skus, r.skus,
+        r.comuna_destino, r.id, r.desc_estado, svc
+      ].map(v => String(v||'').toLowerCase()).join(' ');
+      if (!haystack.includes(q)) return false;
+    }
+
+    return true;
+  });
+}
+
+// ─────────────────────────────────────────────────────
+//  KPIs
+// ─────────────────────────────────────────────────────
+function updateKPIs(filtered) {
+  const all = DATA_RAW;
+  const n   = all.length;
+  const pct = v => n ? Math.round(v/n*100)+'%' : '—';
+
+  const ok      = all.filter(r => String(r.estado_blue||'').toLowerCase().includes('entregado')).length;
+  const camino  = all.filter(r => r.estado_blue === 'En Camino').length;
+  const prep    = all.filter(r => r.estado_blue === 'En Preparación').length;
+  const warn    = all.filter(r => String(r.estado_blue||'').toLowerCase().includes('problema')).length;
+  const devuelto= all.filter(r => String(r.estado_blue||'').toLowerCase().includes('devuelto')).length;
+  const vencida = all.filter(r => estadoPromesa(r) === 'vencida').length;
+
+  set('kn-total',  n);   set('kn-ok', ok);     set('kp-ok', pct(ok));
+  set('kn-camino', camino); set('kp-camino', pct(camino));
+  set('kn-prep',   prep);   set('kp-prep', pct(prep));
+  set('kn-warn',   warn);   set('kp-warn', pct(warn));
+  set('kn-vencida',vencida);
+
+  set('an-vencida', vencida);
+  set('an-prob',    warn);
+  set('an-prep',    prep);
+
+  // chips sidebar
+  set('chip-total',   n);
+  set('chip-ok',      ok);
+  set('chip-camino',  camino);
+  set('chip-prep',    prep);
+  set('chip-warn',    warn);
+  set('chip-dev',     devuelto);
+  set('chip-vencida', vencida);
+}
+
+function set(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+// ─────────────────────────────────────────────────────
+//  SORT
+// ─────────────────────────────────────────────────────
+function sortBy(col, th) {
+  if (sortCol === col) sortAsc = !sortAsc;
+  else { sortCol = col; sortAsc = true; }
+  document.querySelectorAll('thead th').forEach(t => t.classList.remove('sorted'));
+  th.classList.add('sorted');
+  renderAll();
+}
+
+// ─────────────────────────────────────────────────────
+//  BADGE / PROMESA
+// ─────────────────────────────────────────────────────
+function badge(est) {
+  const e = String(est||'').toLowerCase();
+  if (e.includes('entregado') && e.includes('punto')) return `<span class="badge b-ok">Punto Blue</span>`;
+  if (e.includes('entregado')) return `<span class="badge b-ok">Entregado</span>`;
+  if (e.includes('camino'))   return `<span class="badge b-camino">En Camino</span>`;
+  if (e.includes('preparac')) return `<span class="badge b-prep">Preparación</span>`;
+  if (e.includes('problema')) return `<span class="badge b-warn">Problema</span>`;
+  if (e.includes('devuelto')) return `<span class="badge b-danger">Devuelto</span>`;
+  return `<span class="badge b-prep">${est||'—'}</span>`;
+}
+
+function promesaHTML(row) {
+  const p = row.promesa_entrega;
+  if (!p) return '<span class="p-none">—</span>';
+  const ep = estadoPromesa(row);
+  if (ep === 'vencida') return `<span class="p-late">⏰ ${p}</span>`;
+  if (ep === 'riesgo')  return `<span class="p-riesgo">◑ ${p}</span>`;
+  return `<span class="p-ok">${p}</span>`;
+}
+
+// ─────────────────────────────────────────────────────
+//  RENDER TABLE
+// ─────────────────────────────────────────────────────
+function renderTable(rows) {
+  // sort
+  rows = [...rows].sort((a, b) => {
+    let va = getField(a, sortCol) || '';
+    let vb = getField(b, sortCol) || '';
+    if (['promesa_entrega','fecha_creacion'].includes(sortCol)) {
+      const da = parsePromesa(va) || new Date(va) || new Date(0);
+      const db = parsePromesa(vb) || new Date(vb) || new Date(0);
+      return sortAsc ? da - db : db - da;
+    }
+    va = String(va).toLowerCase();
+    vb = String(vb).toLowerCase();
+    return sortAsc ? va.localeCompare(vb,'es') : vb.localeCompare(va,'es');
+  });
+
+  set('table-count', `${rows.length} de ${DATA_RAW.length} pedidos`);
+
+  const tbody = document.getElementById('tbody');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="11"><div class="placeholder">
+      <div class="big" style="opacity:.2">◌</div>
+      <p>Sin resultados para los filtros actuales.</p>
+    </div></td></tr>`;
+    return;
+  }
+
+  const hC = hiddenCols;
+  tbody.innerHTML = rows.map(r => {
+    const ref    = r.referencia || r.id || '—';
+    const fecha  = String(getField(r,'fecha_creacion')||'').slice(0,16);
+    const svc    = getField(r,'envio_blue','envio_blue_raw') || '—';
+    const dest   = r.comuna_destino || '—';
+    const region = getField(r,'region_destino','Region_destino') || '—';
+    const skus   = r.lista_skus || r.skus || '—';
+    const colchon= r.colchon || '—';
+    const link   = r.link_seguimiento || '';
+    const track  = r.tracking || '—';
+    const desc   = r.desc_estado || '—';
+
+    return `<tr>
+      <td class="td-ref">${ref}</td>
+      <td class="td-muted">${fecha}</td>
+      <td>${badge(r.estado_blue)}</td>
+      <td class="td-muted">${desc}</td>
+      <td>${promesaHTML(r)}</td>
+      <td style="font-size:.78rem;font-weight:500">${svc}</td>
+      <td>${dest}</td>
+      <td class="col-region"${hC.has('region')?' style="display:none"':''}>${region}</td>
+      <td class="col-skus"${hC.has('skus')?' style="display:none"''}>
+        <span class="sku-text" title="${skus}">${skus}</span>
+      </td>
+      <td class="col-colchon"${hC.has('colchon')?' style="display:none"':''} style="font-size:.78rem">${colchon}</td>
+      <td>${link
+        ? `<a class="track-link" href="${link}" target="_blank">${track}</a>`
+        : `<span class="td-muted">${track}</span>`
+      }</td>
+    </tr>`;
+  }).join('');
+
+  // sync hidden cols en encabezado
+  syncHeaderCols();
+}
+
+// ─────────────────────────────────────────────────────
+//  TOGGLE COLUMNAS
+// ─────────────────────────────────────────────────────
+function toggleCol(btn, col) {
+  if (hiddenCols.has(col)) {
+    hiddenCols.delete(col);
+    btn.classList.add('active');
+  } else {
+    hiddenCols.add(col);
+    btn.classList.remove('active');
+  }
+  syncHeaderCols();
+  renderAll();
+}
+
+function syncHeaderCols() {
+  ['region','skus','colchon'].forEach(col => {
+    const ths = document.querySelectorAll(`.col-${col}`);
+    ths.forEach(el => el.style.display = hiddenCols.has(col) ? 'none' : '');
+  });
+}
+
+// ─────────────────────────────────────────────────────
+//  SIDEBAR FILTRO ESTADO
+// ─────────────────────────────────────────────────────
+function setFiltroEstado(btn, est) {
+  filtroEst = est;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderAll();
+}
+
+// ─────────────────────────────────────────────────────
+//  RESET
+// ─────────────────────────────────────────────────────
+function resetAll() {
+  filtroEst = '';
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.filter-btn[data-est=""]').classList.add('active');
+  document.getElementById('search').value = '';
+  document.getElementById('f-svc').value = '';
+  document.getElementById('f-region').value = '';
+  document.getElementById('f-promesa').value = '';
+  renderAll();
+}
+</script>
+</div><!-- /app-wrapper -->
+</body>
+</html>
