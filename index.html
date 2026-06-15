@@ -148,117 +148,187 @@ body {
 .btn-refresh:hover { border-color: rgba(255,255,255,.6); color: #fff; }
 
 /* ── LAYOUT ─────────────────────────────────────────── */
-.app { display: flex; flex: 1; overflow: hidden; height: calc(100vh - 56px); }
+.app { display: flex; flex: 1; flex-direction: column; overflow: hidden; height: calc(100vh - 56px); }
 
-/* ── SIDEBAR ────────────────────────────────────────── */
-.sidebar {
-  width: 232px;
-  flex-shrink: 0;
-  background: var(--c-surface);
-  border-right: 1px solid var(--c-border);
-  overflow-y: auto;
-  padding: 24px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-.sidebar-section { padding: 0 16px; margin-bottom: 28px; }
-.sidebar-label {
-  font-size: 0.65rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--c-muted);
-  margin-bottom: 10px;
-  padding: 0 4px;
-}
-.filter-btn {
+/* ── FILTER BAR ─────────────────────────────────────── */
+.filter-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 9px 12px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--c-ink);
-  font-family: inherit;
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: background .12s;
-  text-align: left;
-}
-.filter-btn:hover { background: var(--c-bg); }
-.filter-btn.active { background: var(--c-ink); color: #fff; }
-.filter-btn.active .chip { background: rgba(255,255,255,.2); color: #fff; }
-.filter-btn .label { display: flex; align-items: center; gap: 8px; }
-.filter-btn .dot {
-  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
-}
-.chip {
-  font-size: 0.7rem; font-weight: 600;
-  background: var(--c-bg); border-radius: 20px;
-  padding: 2px 8px; color: var(--c-muted);
-  min-width: 28px; text-align: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border);
+  box-shadow: 0 2px 8px rgba(40,33,28,.05);
+  flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
-.search-sidebar {
-  padding: 0 16px 20px;
+/* Separador vertical entre grupos */
+.fbar-sep {
+  width: 1px; height: 22px;
+  background: var(--c-border);
+  flex-shrink: 0;
+  margin: 0 6px;
 }
-.search-sidebar input {
-  width: 100%;
-  padding: 9px 12px;
+
+/* Search */
+.filter-search {
+  flex: 0 0 170px;
+  padding: 7px 12px 7px 32px;
   border: 1.5px solid var(--c-border);
   border-radius: var(--radius-sm);
   font-family: inherit;
   font-size: 0.82rem;
-  background: var(--c-bg);
+  background: var(--c-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239C948F' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 10px center;
   color: var(--c-ink);
   outline: none;
-  transition: border-color .15s;
+  transition: border-color .15s, box-shadow .15s;
 }
-.search-sidebar input::placeholder { color: var(--c-muted); }
-.search-sidebar input:focus { border-color: var(--c-ink); background: var(--c-surface); }
+.filter-search:focus {
+  border-color: var(--c-ink);
+  box-shadow: 0 0 0 3px rgba(40,33,28,.07);
+}
+.filter-search::placeholder { color: var(--c-muted); }
 
-/* filtros adicionales */
-.filter-select {
-  width: 100%;
-  padding: 9px 12px;
+/* Estado chips */
+.estado-chips { display: flex; gap: 4px; align-items: center; }
+.echip {
+  padding: 5px 12px;
+  border-radius: 20px;
   border: 1.5px solid var(--c-border);
-  border-radius: var(--radius-sm);
-  font-family: inherit;
-  font-size: 0.82rem;
-  background: var(--c-bg);
-  color: var(--c-ink);
-  outline: none;
+  font-size: 0.72rem;
+  font-weight: 500;
   cursor: pointer;
-  margin-bottom: 8px;
-  transition: border-color .15s;
+  transition: all .15s;
+  color: var(--c-muted);
+  background: transparent;
+  font-family: inherit;
+  white-space: nowrap;
+  letter-spacing: .01em;
 }
-.filter-select:focus { border-color: var(--c-ink); }
+.echip:hover { border-color: var(--c-ink); color: var(--c-ink); }
 
-.btn-clear {
-  width: 100%;
-  padding: 9px;
+.echip[data-est="En Camino"].active        { background: var(--c-camino-bg); border-color: var(--c-camino); color: var(--c-camino); }
+.echip[data-est="En Preparación"].active   { background: var(--c-prep-bg);   border-color: #8B8480;         color: #6B6460; }
+.echip[data-est="Problema"].active         { background: var(--c-warn-bg);   border-color: var(--c-warn);   color: var(--c-warn); }
+.echip[data-est="__vencida__"].active      { background: var(--c-danger-bg); border-color: var(--c-danger); color: var(--c-danger); }
+.echip[data-est="Entregado"].active        { background: var(--c-ok-bg);     border-color: var(--c-ok);     color: var(--c-ok); }
+.echip[data-est="Devuelto"].active         { background: var(--c-prep-bg);   border-color: #8B8480;         color: #6B6460; }
+
+/* Selects */
+.fbar-select {
+  padding: 7px 28px 7px 10px;
   border: 1.5px solid var(--c-border);
   border-radius: var(--radius-sm);
-  background: transparent;
   font-family: inherit;
   font-size: 0.78rem;
+  background: var(--c-bg);
+  color: var(--c-ink);
+  outline: none;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239C948F' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+.fbar-select:focus {
+  border-color: var(--c-ink);
+  box-shadow: 0 0 0 3px rgba(40,33,28,.07);
+}
+
+/* Date range */
+.fbar-date-group {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-bg);
+  overflow: hidden;
+  transition: border-color .15s, box-shadow .15s;
+}
+.fbar-date-group:focus-within {
+  border-color: var(--c-ink);
+  box-shadow: 0 0 0 3px rgba(40,33,28,.07);
+}
+.fbar-date-label {
+  display: flex;
+  align-items: center;
+  font-size: 0.7rem;
+  color: var(--c-muted);
+  padding: 0 8px;
+  font-weight: 500;
+  white-space: nowrap;
+  user-select: none;
+}
+.fbar-date-label:first-child { border-right: 1px solid var(--c-border); }
+.fbar-date {
+  border: none;
+  background: transparent;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--c-ink);
+  outline: none;
+  cursor: pointer;
+  width: 120px;
+}
+
+/* Ver solucionados toggle */
+.fbar-toggle {
+  padding: 6px 12px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.75rem;
   color: var(--c-muted);
   cursor: pointer;
-  transition: border-color .15s, color .15s;
+  transition: all .15s;
+  white-space: nowrap;
+  letter-spacing: .01em;
 }
-.btn-clear:hover { border-color: var(--c-ink); color: var(--c-ink); }
+.fbar-toggle:hover { border-color: var(--c-ok); color: var(--c-ok); }
+.fbar-toggle.active { background: var(--c-ok-bg); border-color: var(--c-ok); color: var(--c-ok); font-weight: 500; }
+
+/* Limpiar */
+.fbar-clear {
+  padding: 6px 10px;
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--c-muted);
+  cursor: pointer;
+  transition: all .15s;
+}
+.fbar-clear:hover { border-color: var(--c-danger); color: var(--c-danger); background: var(--c-danger-bg); }
+
+/* Count badge */
+.fbar-count {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--c-ink);
+  background: var(--c-beige);
+  border: 1.5px solid var(--c-border);
+  border-radius: 20px;
+  padding: 3px 10px;
+  white-space: nowrap;
+  letter-spacing: .01em;
+}
 
 /* ── MAIN CONTENT ───────────────────────────────────── */
 .content {
   flex: 1;
-  overflow-y: auto;
-  padding: 28px 28px 48px;
+  min-height: 0;
+  padding: 16px 16px 24px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 0;
+  overflow: hidden;
 }
 
 /* ── KPI ROW ────────────────────────────────────────── */
@@ -327,8 +397,11 @@ body {
   background: var(--c-surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 .table-header {
   padding: 14px 20px;
@@ -336,25 +409,37 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
 }
 .table-header-left { font-size: 0.78rem; color: var(--c-muted); }
-.table-header-right { display: flex; gap: 8px; }
 
-.col-toggle-btn {
-  padding: 6px 12px;
-  border: 1.5px solid var(--c-border);
-  border-radius: 6px;
-  background: transparent;
-  font-family: inherit;
-  font-size: 0.75rem;
-  color: var(--c-muted);
-  cursor: pointer;
-  transition: all .15s;
+.table-scroll {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
 }
-.col-toggle-btn:hover { border-color: var(--c-ink); color: var(--c-ink); }
-.col-toggle-btn.active { background: var(--c-ink); color: #fff; border-color: var(--c-ink); }
 
-.table-scroll { overflow-x: auto; }
+/* ── COLUMN TOGGLE (Excel-style header button) ──────── */
+.th-toggle {
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.th-collapse-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px;
+  border: 1.5px solid var(--c-border);
+  border-radius: 3px;
+  background: var(--c-surface);
+  color: var(--c-muted);
+  font-size: 0.6rem;
+  cursor: pointer;
+  line-height: 1;
+  transition: all .15s;
+  font-weight: 700;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.th-collapse-btn:hover { border-color: var(--c-ink); color: var(--c-ink); }
+.col-hidden { display: none !important; }
 
 table {
   width: 100%;
@@ -673,91 +758,57 @@ tbody tr.sku-expand-row td { border-top: none; padding-top: 0; }
 <!-- APP LAYOUT -->
 <div class="app">
 
-  <!-- SIDEBAR -->
-  <aside class="sidebar">
-
-    <div class="search-sidebar">
-      <input type="text" id="search" placeholder="buscar…" oninput="renderAll()">
+  <!-- FILTER BAR -->
+  <div class="filter-bar">
+    <input type="text" id="search" placeholder="buscar…" oninput="renderAll()" class="filter-search">
+    <div class="fbar-sep"></div>
+    <div class="estado-chips" id="estado-chips">
+      <button class="echip active" data-est="En Camino"     onclick="toggleEstado(this)">En Camino</button>
+      <button class="echip active" data-est="En Preparación" onclick="toggleEstado(this)">Preparación</button>
+      <button class="echip active" data-est="Problema"      onclick="toggleEstado(this)">Problema</button>
+      <button class="echip active" data-est="__vencida__"   onclick="toggleEstado(this)">Vencida</button>
+      <button class="echip"        data-est="Entregado"     onclick="toggleEstado(this)">Entregado</button>
+      <button class="echip"        data-est="Devuelto"      onclick="toggleEstado(this)">Devuelto</button>
     </div>
-
-    <div class="sidebar-section">
-      <div class="sidebar-label">estado</div>
-      <button class="filter-btn active" data-est="" onclick="setFiltroEstado(this,'')">
-        <span class="label"><span class="dot" style="background:var(--c-muted)"></span>todos</span>
-        <span class="chip" id="chip-total">—</span>
-      </button>
-      <button class="filter-btn" data-est="Entregado" onclick="setFiltroEstado(this,'Entregado')">
-        <span class="label"><span class="dot" style="background:var(--c-ok)"></span>entregado</span>
-        <span class="chip" id="chip-ok">—</span>
-      </button>
-      <button class="filter-btn" data-est="En Camino" onclick="setFiltroEstado(this,'En Camino')">
-        <span class="label"><span class="dot" style="background:var(--c-camino)"></span>en camino</span>
-        <span class="chip" id="chip-camino">—</span>
-      </button>
-      <button class="filter-btn" data-est="En Preparación" onclick="setFiltroEstado(this,'En Preparación')">
-        <span class="label"><span class="dot" style="background:var(--c-prep)"></span>preparación</span>
-        <span class="chip" id="chip-prep">—</span>
-      </button>
-      <button class="filter-btn" data-est="Problema" onclick="setFiltroEstado(this,'Problema')">
-        <span class="label"><span class="dot" style="background:var(--c-warn)"></span>problema</span>
-        <span class="chip" id="chip-warn">—</span>
-      </button>
-      <button class="filter-btn" data-est="Devuelto" onclick="setFiltroEstado(this,'Devuelto')">
-        <span class="label"><span class="dot" style="background:var(--c-danger)"></span>devuelto</span>
-        <span class="chip" id="chip-dev">—</span>
-      </button>
-      <button class="filter-btn" data-est="__vencida__" onclick="setFiltroEstado(this,'__vencida__')">
-        <span class="label"><span class="dot" style="background:var(--c-danger)"></span>promesa vencida</span>
-        <span class="chip" id="chip-vencida">—</span>
-      </button>
+    <div class="fbar-sep"></div>
+    <select class="fbar-select" id="f-svc" onchange="renderAll()">
+      <option value="">Servicio</option>
+      <option value="SAMEDAY">SameDay</option>
+      <option value="PRIORITY">Priority</option>
+      <option value="EXPRESS">Express</option>
+    </select>
+    <select class="fbar-select" id="f-region" onchange="renderAll()">
+      <option value="">Región</option>
+    </select>
+    <select class="fbar-select" id="f-promesa" onchange="renderAll()">
+      <option value="">Promesa</option>
+      <option value="ok">a tiempo</option>
+      <option value="riesgo">vence hoy</option>
+      <option value="vencida">vencida</option>
+    </select>
+    <div class="fbar-sep"></div>
+    <div class="fbar-date-group">
+      <label class="fbar-date-label">desde<input type="date" class="fbar-date" id="f-desde" onchange="renderAll()"></label>
+      <label class="fbar-date-label">hasta<input type="date" class="fbar-date" id="f-hasta" onchange="renderAll()"></label>
     </div>
-
-    <div class="sidebar-section">
-      <div class="sidebar-label">servicio</div>
-      <select class="filter-select" id="f-svc" onchange="renderAll()">
-        <option value="">todos</option>
-        <option value="SAMEDAY">SameDay</option>
-        <option value="PRIORITY">Priority</option>
-        <option value="EXPRESS">Express</option>
-      </select>
-    </div>
-
-    <div class="sidebar-section">
-      <div class="sidebar-label">región</div>
-      <select class="filter-select" id="f-region" onchange="renderAll()">
-        <option value="">todas</option>
-      </select>
-    </div>
-
-    <div class="sidebar-section">
-      <div class="sidebar-label">promesa</div>
-      <select class="filter-select" id="f-promesa" onchange="renderAll()">
-        <option value="">todas</option>
-        <option value="ok">a tiempo</option>
-        <option value="riesgo">vence hoy</option>
-        <option value="vencida">vencida</option>
-      </select>
-    </div>
-
-    <div class="sidebar-section">
-      <button class="btn-clear" onclick="resetAll()">limpiar filtros</button>
-    </div>
-
-  </aside>
+    <button class="fbar-toggle" id="btn-dspr" onclick="toggleDspr(this)">📅 Despacho Prog.</button>
+    <div class="fbar-sep"></div>
+    <button class="fbar-toggle" id="btn-sol" onclick="toggleVerSolucionados(this)">ver solucionados</button>
+    <button class="fbar-clear" onclick="resetAll()">✕ limpiar</button>
+    <span class="fbar-count" id="table-count">—</span>
+  </div>
 
   <!-- CONTENT -->
   <main class="content">
 
     <!-- TABLA -->
     <div class="table-area">
-      <div class="table-header">
-        <span class="table-header-left" id="table-count">—</span>
-      </div>
+
       <div class="table-scroll">
         <table>
           <thead>
             <tr>
-              <th style="width:32px"></th>
+              <th style="width:28px"></th>
               <th onclick="sortBy('referencia',this)">Referencia <span class="sort-icon">↕</span></th>
               <th onclick="sortBy('tracking',this)">Tracking <span class="sort-icon">↕</span></th>
               <th>Link</th>
@@ -768,16 +819,14 @@ tbody tr.sku-expand-row td { border-top: none; padding-top: 0; }
               <th onclick="sortBy('region_destino',this)">Región <span class="sort-icon">↕</span></th>
               <th onclick="sortBy('comuna_destino',this)">Comuna <span class="sort-icon">↕</span></th>
               <th onclick="sortBy('total_paid',this)">Total <span class="sort-icon">↕</span></th>
-              <th style="text-align:center">✓ Sol.</th>
+              <th style="text-align:center">&#10003; Sol.</th>
               <th onclick="sortBy('estado_blue',this)">Estado <span class="sort-icon">↕</span></th>
               <th>Desc. Estado</th>
               <th>Notas</th>
-              <th>Cómo se solucionó</th>
-              <th onclick="sortBy('colchon',this)">Colchón <span class="sort-icon">↕</span></th>
             </tr>
           </thead>
           <tbody id="tbody">
-            <tr><td colspan="17">
+            <tr><td colspan="15">
               <div class="placeholder">
                 <div class="big">◌</div>
                 <p>Cargando datos…</p>
@@ -796,16 +845,18 @@ tbody tr.sku-expand-row td { border-top: none; padding-top: 0; }
 //  CONFIGURACIÓN — CAMBIA ESTA URL POR LA DE TU SCRIPT
 // ─────────────────────────────────────────────────────
 const LS_KEY = 'hypnos_script_url';
-let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbywHBsHQ74MwI9JAsDGqWkaIepW9wBD5XqZisY-pDpFIBkkSwnIfuj7iv7PrgcKNTk1Fw/exec';
+let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxUydii7MgLjnbe7pdWvxEPLGcqBZSWRKUtJK7ZOvDQ-KY0F87UkTKVmI50ij8dY1JUkg/exec';
 
 // ─────────────────────────────────────────────────────
 //  ESTADO GLOBAL
 // ─────────────────────────────────────────────────────
 let DATA_RAW = [];      // todos los pedidos
 let sortCol  = 'fecha_creacion';
-let sortAsc  = false;
+let sortAsc  = true;
 let hiddenCols = new Set();
-let filtroEst  = '';
+const activeEstados = new Set(['En Camino','En Preparación','Problema','__vencida__']);
+let showSolucionados = false;
+let filterDspr = false;
 
 // ─────────────────────────────────────────────────────
 //  INIT
@@ -845,6 +896,8 @@ async function fetchData() {
     if (!json.ok) throw new Error(json.error || 'Error en el script');
 
     DATA_RAW = json.data;
+    // Debug: ver qué campos trae el primer registro
+    if (DATA_RAW.length) console.log('[Hypnos] Campos JSON:', Object.keys(DATA_RAW[0]));
     const now = new Date().toLocaleString('es-CL', {
       hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'
     });
@@ -933,24 +986,38 @@ function applyFilters() {
   const fProm   = document.getElementById('f-promesa').value;
 
   return DATA_RAW.filter(r => {
+    // Ocultar solucionados (Sheet o marcado local) salvo toggle activo
+    const ref0 = r.referencia || r.id || '';
+    if (!showSolucionados && (isSolFromSheet(r) || isSolucionado(ref0))) return false;
+
     const est    = String(r.estado_blue || '').toLowerCase();
     const svc    = String(getField(r,'envio_blue','envio_blue_raw') || '').toUpperCase();
     const region = String(getField(r,'region_destino','Region_destino') || '');
     const ep     = estadoPromesa(r);
 
-    // filtro estado (sidebar)
-    if (filtroEst === '__vencida__') { if (ep !== 'vencida') return false; }
-    else if (filtroEst === 'Entregado') {
-      if (!(est.includes('entregado'))) return false;
+    // filtro estado multi-select
+    if (activeEstados.size > 0) {
+      const matchEst = [...activeEstados].some(a => {
+        if (a === '__vencida__') return ep === 'vencida';
+        return est.includes(a.toLowerCase());
+      });
+      if (!matchEst) return false;
     }
-    else if (filtroEst === 'Problema') {
-      if (!est.includes('problema')) return false;
-    }
-    else if (filtroEst && !est.includes(filtroEst.toLowerCase())) return false;
 
     if (fSvc    && svc !== fSvc)            return false;
     if (fRegion && region !== fRegion)      return false;
     if (fProm   && ep !== fProm)            return false;
+
+    // filtro fecha
+    const fDesde = document.getElementById('f-desde').value;
+    const fHasta = document.getElementById('f-hasta').value;
+    if (fDesde || fHasta) {
+      const fc = String(getField(r,'fecha_creacion')||'').slice(0,10);
+      if (fDesde && fc < fDesde) return false;
+      if (fHasta && fc > fHasta) return false;
+    }
+
+    if (filterDspr && !hasDspr(r)) return false;
 
     if (q) {
       const haystack = [
@@ -1039,7 +1106,7 @@ function promesaHTML(row) {
 }
 
 // ─────────────────────────────────────────────────────
-//  SOLUCIONADO (localStorage override)
+//  SOLUCIONADO
 // ─────────────────────────────────────────────────────
 const SOL_KEY = 'hypnos_sol';
 function getSolMap() {
@@ -1047,24 +1114,161 @@ function getSolMap() {
 }
 function isSolucionado(ref) {
   const map = getSolMap();
-  if (ref in map) return map[ref];  // override local
-  return false;
+  return ref in map ? map[ref] : false;
 }
-function toggleSolucionado(ref) {
-  const map = getSolMap();
-  map[ref] = !isSolucionado(ref);
-  localStorage.setItem(SOL_KEY, JSON.stringify(map));
+function isSolFromSheet(r) {
+  const v = String(r.solucionado ?? r.Solucionado ?? '').toLowerCase().trim();
+  return v === 'true' || v === 'verdadero' || v === 'sí' || v === 'si' || v === '1';
+}
+function toggleVerSolucionados(btn) {
+  showSolucionados = !showSolucionados;
+  btn.classList.toggle('active', showSolucionados);
   renderAll();
+}
+async function toggleSolucionado(ref) {
+  const map = getSolMap();
+  const sol = !isSolucionado(ref);
+  map[ref] = sol;
+  localStorage.setItem(SOL_KEY, JSON.stringify(map));
+
+  const tr = document.querySelector(`tr[data-ref="${CSS.escape(ref)}"]`);
+  if (tr) {
+    const btn = tr.querySelector('.sol-btn');
+    btn.classList.toggle('sol-on', sol);
+    btn.innerHTML = sol ? '&#10003;' : '&#9675;';
+    btn.title = sol ? 'Marcar como pendiente' : 'Marcar como solucionado';
+    const raw = DATA_RAW.find(r => (r.referencia || r.id) === ref);
+    if (raw) tr.className = rowClass(raw, sol);
+    // Si se marca como solucionado y no se muestran solucionados, desvanece tras 3s
+    if (!showSolucionados && sol) {
+      setTimeout(() => {
+        tr.style.transition = 'opacity .6s, transform .6s';
+        tr.style.opacity = '0';
+        tr.style.transform = 'translateX(8px)';
+        setTimeout(() => renderAll(), 650);
+      }, 3000);
+    }
+  }
+
+  // Escribir al Sheet via Apps Script
+  try {
+    const url = SCRIPT_URL + '?action=setSolucionado&ref=' + encodeURIComponent(ref) + '&val=' + sol;
+    const res = await fetch(url);
+    const j   = await res.json();
+    if (!j.ok) console.warn('[Hypnos] setSolucionado error:', j.error);
+  } catch(e) {
+    console.warn('[Hypnos] setSolucionado fetch error:', e.message);
+  }
 }
 
 // ─────────────────────────────────────────────────────
-//  SKU EXPAND
+//  NOTAS — guardado local + write-back al Sheet
 // ─────────────────────────────────────────────────────
+const NOTA_KEY = 'hypnos_notas';
+let notaTimers = {};
+
+function getNotaMap() {
+  try { return JSON.parse(localStorage.getItem(NOTA_KEY) || '{}'); } catch { return {}; }
+}
+function getNota(ref, row) {
+  const map = getNotaMap();
+  // Prioridad: local override > campo del sheet
+  if (ref in map) return map[ref];
+  return row ? (row.notas || row.Notas || row.NOTAS || '') : '';
+}
+async function saveNota(ref, val) {
+  const map = getNotaMap();
+  map[ref] = val;
+  localStorage.setItem(NOTA_KEY, JSON.stringify(map));
+  // Mostrar indicador
+  const tr = document.querySelector(`tr[data-ref="${CSS.escape(ref)}"]`);
+  const saving = tr ? tr.querySelector('.nota-saving') : null;
+  if (saving) { saving.style.display = 'inline'; }
+  clearTimeout(notaTimers[ref]);
+  notaTimers[ref] = setTimeout(async () => {
+    try {
+      const url = SCRIPT_URL + '?action=setNota&ref=' + encodeURIComponent(ref) + '&val=' + encodeURIComponent(val);
+      const res = await fetch(url);
+      const j   = await res.json();
+      if (!j.ok) console.warn('[Hypnos] setNota error:', j.error);
+    } catch(e) {
+      console.warn('[Hypnos] setNota fetch error:', e.message);
+    }
+    if (saving) saving.style.display = 'none';
+  }, 800);
+}
+
+// ─────────────────────────────────────────────────────
+//  COLUMN GROUP TOGGLE (Excel-style)
+// ─────────────────────────────────────────────────────
+const hiddenColGroups = new Set();
 let expandedRows = new Set();
+function toggleColGroup(group, event) {
+  event.stopPropagation(); // no disparar sort del th
+  const hidden = hiddenColGroups.has(group);
+  if (hidden) hiddenColGroups.delete(group);
+  else hiddenColGroups.add(group);
+
+  // toggle clase en todas las celdas del grupo
+  document.querySelectorAll(`.col-${group}`).forEach(el => {
+    el.classList.toggle('col-hidden', !hidden);
+  });
+  // cambiar botón del header
+  const btn = document.querySelector(`#th-${group} .th-collapse-btn`);
+  if (btn) btn.textContent = hidden ? '−' : '+';
+}
+
+function getSKU(r) {
+  const direct = r.skus || r.SKUs || r.SKUS || r.Skus ||
+                 r.lista_skus || r.listaSkus || r.sku || r.SKU;
+  if (direct) return direct;
+  const k = Object.keys(r).find(k => k.toLowerCase().replace(/[_\s]/g,'').includes('sku'));
+  return k ? r[k] : '—';
+}
+function getColchon(r) {
+  const direct = r.colchon || r.Colchon || r.COLCHON || r.colchón;
+  if (direct) return direct;
+  const k = Object.keys(r).find(k => k.toLowerCase().includes('colch'));
+  return k ? r[k] : '—';
+}
+
+function hasDspr(r) {
+  const skus = String(getSKU(r) || '').toLowerCase();
+  return skus.includes('dspr');
+}
+
+// ─────────────────────────────────────────────────────
+//  SKU EXPAND — DOM directo
+// ─────────────────────────────────────────────────────
 function toggleExpand(ref) {
-  if (expandedRows.has(ref)) expandedRows.delete(ref);
-  else expandedRows.add(ref);
-  renderAll();
+  const tr   = document.querySelector(`tr[data-ref="${CSS.escape(ref)}"]`);
+  if (!tr) return;
+  const btn  = tr.querySelector('.expand-btn');
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains('sku-expand-row')) {
+    next.remove();
+    expandedRows.delete(ref);
+    btn.classList.remove('open');
+    btn.innerHTML = '&#9654;';
+  } else {
+    expandedRows.add(ref);
+    btn.classList.add('open');
+    btn.innerHTML = '&#9660;';
+    const raw  = DATA_RAW.find(r => (r.referencia || r.id) === ref);
+    const skus = raw ? getSKU(raw) : '—';
+
+    const chips = String(skus).split(',').map(s => s.trim()).filter(Boolean)
+      .map(s => `<span class="sku-chip">${esc(s)}</span>`).join('') || esc(skus);
+    const skuTr = document.createElement('tr');
+    skuTr.className = 'sku-expand-row';
+    skuTr.innerHTML = `<td></td><td colspan="14">
+      <div class="sku-detail">
+        <span class="sku-label">SKUs:</span>
+        <span class="sku-chips">${chips}</span>
+
+      </div></td>`;
+    tr.insertAdjacentElement('afterend', skuTr);
+  }
 }
 
 // ─────────────────────────────────────────────────────
@@ -1106,20 +1310,19 @@ function renderTable(rows) {
 
   const tbody = document.getElementById('tbody');
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="17"><div class="placeholder">
+    tbody.innerHTML = `<tr><td colspan="15"><div class="placeholder">
       <div class="big" style="opacity:.2">◌</div>
       <p>Sin resultados para los filtros actuales.</p>
     </div></td></tr>`;
     return;
   }
 
-  const COLS = 17;
   tbody.innerHTML = rows.map(r => {
     const ref     = r.referencia || r.id || '—';
     const track   = r.tracking || '—';
+    const isDspr  = hasDspr(r);
     const link    = r.link_seguimiento || r.link_se || '';
     const fecha   = String(getField(r,'fecha_creacion')||'').slice(0,16);
-    const promesa = r.promesa_entrega || '—';
     const stark   = r.envio_starkoms || '—';
     const blue    = getField(r,'envio_blue') || '—';
     const region  = getField(r,'region_destino','Region_destino') || '—';
@@ -1128,19 +1331,16 @@ function renderTable(rows) {
     const sol     = isSolucionado(ref);
     const estado  = r.estado_blue || '—';
     const desc    = r.desc_estado || '—';
-    const notas   = r.notas || '—';
-    const como    = r.como_se_soluciono || '—';
-    const colchon = r.colchon || '—';
-    const skus    = r.lista_skus || r.skus || '—';
+    const nota    = getNota(ref, r);
     const expanded = expandedRows.has(ref);
 
-    const mainRow = `<tr class="${rowClass(r, sol)}" data-ref="${esc(ref)}">
+    return `<tr class="${rowClass(r, sol)}" data-ref="${esc(ref)}">
       <td style="text-align:center;padding:0 4px">
-        <button class="expand-btn${expanded?' open':''}" onclick="toggleExpand('${esc(ref)}')" title="Ver SKUs">${expanded?'▼':'▶'}</button>
+        <button class="expand-btn${expanded?' open':''}" onclick="toggleExpand('${esc(ref)}')">${expanded?'&#9660;':'&#9654;'}</button>
       </td>
-      <td class="td-ref">${esc(ref)}</td>
+      <td class="td-ref" style="white-space:nowrap">${esc(ref)}${isDspr ? `<span class="badge-dspr"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Prog.</span>` : ''}</td>
       <td class="td-mono">${esc(track)}</td>
-      <td>${link ? `<a class="track-link" href="${link}" target="_blank">🔗</a>` : '<span class="td-muted">—</span>'}</td>
+      <td>${link ? `<a class="track-link" href="${link}" target="_blank">&#128279;</a>` : '<span class="td-muted">—</span>'}</td>
       <td class="td-muted td-nowrap">${esc(fecha)}</td>
       <td>${promesaHTML(r)}</td>
       <td class="td-svc">${esc(stark)}</td>
@@ -1149,26 +1349,18 @@ function renderTable(rows) {
       <td>${esc(comuna)}</td>
       <td class="td-num">${total}</td>
       <td style="text-align:center">
-        <button class="sol-btn${sol?' sol-on':''}" onclick="toggleSolucionado('${esc(ref)}')" title="${sol?'Marcar como pendiente':'Marcar como solucionado'}">${sol?'✓':'○'}</button>
+        <button class="sol-btn${sol?' sol-on':''}" onclick="toggleSolucionado('${esc(ref)}')" title="${sol?'Marcar como pendiente':'Marcar como solucionado'}">${sol?'&#10003;':'&#9675;'}</button>
       </td>
       <td>${badge(estado)}</td>
       <td class="td-truncate" title="${esc(desc)}">${esc(desc)}</td>
-      <td class="td-truncate" title="${esc(notas)}">${esc(notas)}</td>
-      <td class="td-truncate" title="${esc(como)}">${esc(como)}</td>
-      <td class="td-muted">${esc(colchon)}</td>
-    </tr>`;
-
-    const skuRow = expanded ? `<tr class="sku-expand-row">
-      <td></td>
-      <td colspan="16">
-        <div class="sku-detail">
-          <span class="sku-label">SKUs:</span>
-          <span class="sku-chips">${String(skus).split(',').map(s=>s.trim()).filter(Boolean).map(s=>`<span class="sku-chip">${esc(s)}</span>`).join('')}</span>
-        </div>
+      <td style="padding:4px 8px">
+        <textarea class="nota-input" rows="1" placeholder="agregar nota…"
+          onblur="saveNota('${esc(ref)}', this.value)"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur()}"
+        >${esc(nota)}</textarea>
+        <span class="nota-saving">guardando…</span>
       </td>
-    </tr>` : '';
-
-    return mainRow + skuRow;
+    </tr>`;
   }).join('');
 }
 
@@ -1184,12 +1376,23 @@ function syncHeaderCols() {}
 function toggleCol() {}
 
 // ─────────────────────────────────────────────────────
-//  SIDEBAR FILTRO ESTADO
+//  ESTADO MULTI-TOGGLE
 // ─────────────────────────────────────────────────────
-function setFiltroEstado(btn, est) {
-  filtroEst = est;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+function toggleDspr(btn) {
+  filterDspr = !filterDspr;
+  btn.classList.toggle('active', filterDspr);
+  renderAll();
+}
+
+function toggleEstado(btn) {
+  const est = btn.dataset.est;
+  if (activeEstados.has(est)) {
+    activeEstados.delete(est);
+    btn.classList.remove('active');
+  } else {
+    activeEstados.add(est);
+    btn.classList.add('active');
+  }
   renderAll();
 }
 
@@ -1197,13 +1400,24 @@ function setFiltroEstado(btn, est) {
 //  RESET
 // ─────────────────────────────────────────────────────
 function resetAll() {
-  filtroEst = '';
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  document.querySelector('.filter-btn[data-est=""]').classList.add('active');
+  showSolucionados = false;
+  const btnSol = document.getElementById('btn-sol');
+  if (btnSol) btnSol.classList.remove('active');
+  // restaurar chips de estado al default
+  activeEstados.clear();
+  ['En Camino','En Preparación','Problema','__vencida__'].forEach(e => activeEstados.add(e));
+  document.querySelectorAll('.echip').forEach(b => {
+    b.classList.toggle('active', activeEstados.has(b.dataset.est));
+  });
   document.getElementById('search').value = '';
   document.getElementById('f-svc').value = '';
   document.getElementById('f-region').value = '';
   document.getElementById('f-promesa').value = '';
+  document.getElementById('f-desde').value = '';
+  filterDspr = false;
+  const btnDspr = document.getElementById('btn-dspr');
+  if (btnDspr) btnDspr.classList.remove('active');
+  document.getElementById('f-hasta').value = '';
   renderAll();
 }
 </script>
