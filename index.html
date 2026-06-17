@@ -86,12 +86,13 @@
   --shadow-md: 0 4px 20px rgba(40,33,28,.10);
 }
 
-html { font-size: 14px; }
+html { font-size: 14px; height: 100%; overflow: hidden; }
 body {
   font-family: 'DM Sans', Arial, sans-serif;
   background: var(--c-bg);
   color: var(--c-ink);
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
@@ -109,7 +110,8 @@ body {
   top: 0;
   z-index: 100;
 }
-.brand { display: flex; align-items: baseline; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-logo { height: 32px; width: auto; mix-blend-mode: screen; }
 .brand-name {
   font-size: 1.25rem;
   font-weight: 500;
@@ -148,7 +150,7 @@ body {
 .btn-refresh:hover { border-color: rgba(255,255,255,.6); color: #fff; }
 
 /* ── LAYOUT ─────────────────────────────────────────── */
-.app { display: flex; flex: 1; flex-direction: column; overflow: hidden; height: calc(100vh - 56px); }
+.app { display: flex; flex-direction: column; overflow: hidden; height: calc(100vh - 98px); }
 
 /* ── FILTER BAR ─────────────────────────────────────── */
 .filter-bar {
@@ -160,8 +162,13 @@ body {
   border-bottom: 1px solid var(--c-border);
   box-shadow: 0 2px 8px rgba(40,33,28,.05);
   flex-shrink: 0;
-  flex-wrap: wrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  white-space: nowrap;
 }
+.filter-bar::-webkit-scrollbar { display: none; }
+.filter-bar > * { flex-shrink: 0; }
 
 /* Separador vertical entre grupos */
 .fbar-sep {
@@ -496,10 +503,11 @@ td { padding: 11px 14px; vertical-align: middle; }
 .b-danger::before { background: var(--c-danger); }
 
 /* Promesa */
-.p-ok     { color: var(--c-ok);     font-weight:500; }
-.p-riesgo { color: var(--c-warn);   font-weight:500; }
-.p-late   { color: var(--c-danger); font-weight:600; }
+.p-ok     { color: var(--c-ok);     font-weight:500; white-space:nowrap; }
+.p-riesgo { color: var(--c-warn);   font-weight:500; white-space:nowrap; }
+.p-late   { color: var(--c-danger); font-weight:600; white-space:nowrap; }
 .p-none   { color: var(--c-muted); }
+.p-dspr   { color: var(--c-camino); font-size: 0.78rem; white-space: nowrap; }
 
 /* Link tracking */
 .track-link {
@@ -604,10 +612,18 @@ tbody tr.sku-expand-row td { border-top: none; padding-top: 0; }
 .sol-btn.sol-on { background: var(--c-ok); border-color: var(--c-ok); color: #fff; }
 
 /* ── SKU DETAIL ROW ─────────────────────────────────── */
+@keyframes expandSlide {
+  from { opacity: 0; transform: translateY(-5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+tbody tr.sku-expand-row .sku-detail {
+  animation: expandSlide .16s cubic-bezier(.25,.8,.25,1);
+}
 .sku-detail {
   display: flex; align-items: flex-start; gap: 10px;
-  padding: 6px 8px 10px;
+  padding: 10px 12px 14px;
 }
+.sku-detail-inner { display: flex; flex-direction: column; gap: 10px; width: 100%; }
 .sku-label { font-size: 0.7rem; color: var(--c-muted); font-weight: 500; padding-top: 2px; white-space: nowrap; }
 .sku-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .sku-chip {
@@ -616,6 +632,102 @@ tbody tr.sku-expand-row td { border-top: none; padding-top: 0; }
   font-size: 0.72rem; font-weight: 500; font-family: monospace;
   border: 1px solid var(--c-border);
 }
+/* ── FOTO EVIDENCIA ─────────────────────────────────── */
+.sku-fotos-row { display: flex; align-items: flex-start; gap: 10px; }
+.sku-fotos-grid { display: flex; gap: 6px; flex-wrap: wrap; }
+.sku-foto-thumb {
+  width: 64px; height: 64px; object-fit: cover;
+  border-radius: 6px; border: 1px solid var(--c-border);
+  cursor: pointer; transition: transform .15s, box-shadow .15s;
+  display: block;
+}
+.sku-foto-thumb:hover { transform: scale(1.08); box-shadow: 0 4px 12px rgba(40,33,28,.18); }
+/* ── LIGHTBOX ────────────────────────────────────────── */
+#lightbox {
+  display: none; position: fixed; inset: 0; z-index: 9999;
+  background: rgba(20,16,14,.85); backdrop-filter: blur(4px);
+  align-items: center; justify-content: center;
+  cursor: zoom-out;
+}
+#lightbox.open { display: flex; animation: lbIn .18s ease-out; }
+@keyframes lbIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+#lightbox img {
+  max-width: 92vw; max-height: 92vh;
+  object-fit: contain; border-radius: 8px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.5);
+  cursor: default;
+  animation: lbScale .18s cubic-bezier(.25,.8,.25,1);
+}
+@keyframes lbScale {
+  from { transform: scale(.92); }
+  to   { transform: scale(1); }
+}
+#lightbox-close {
+  position: fixed; top: 18px; right: 22px;
+  color: #fff; font-size: 1.6rem; font-weight: 300;
+  cursor: pointer; line-height: 1; opacity: .8;
+  transition: opacity .15s;
+  background: none; border: none; padding: 4px 8px;
+}
+#lightbox-close:hover { opacity: 1; }
+/* ── HISTORIAL ───────────────────────────────────────── */
+.hist-row { display: flex; align-items: flex-start; gap: 10px; }
+.hist-list { display: flex; flex-direction: column; gap: 4px; }
+.hist-item {
+  display: flex; align-items: baseline; gap: 8px;
+  font-size: 0.82rem; line-height: 1.5;
+}
+.hist-fecha { color: var(--c-muted); white-space: nowrap; font-variant-numeric: tabular-nums; min-width: 80px; }
+.hist-badge {
+  font-size: 0.72rem; font-weight: 600; padding: 1px 7px; border-radius: 4px;
+  white-space: nowrap; flex-shrink: 0;
+}
+.hist-badge.ok      { background: var(--c-ok-bg);    color: var(--c-ok); }
+.hist-badge.camino  { background: var(--c-camino-bg); color: var(--c-camino); }
+.hist-badge.prep    { background: var(--c-prep-bg);   color: var(--c-prep); }
+.hist-badge.warn    { background: var(--c-warn-bg);   color: var(--c-warn); }
+.hist-badge.danger  { background: var(--c-danger-bg); color: var(--c-danger); }
+.hist-desc { color: var(--c-ink); }
+/* ── FOTOS (links) ───────────────────────────────────── */
+.sku-foto-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.sku-foto-link {
+  font-size: 0.78rem; color: var(--c-camino);
+  text-decoration: none; padding: 2px 8px;
+  border: 1px solid var(--c-camino-bg); border-radius: 4px;
+  background: var(--c-camino-bg);
+  transition: opacity .15s;
+}
+.sku-foto-link:hover { opacity: .75; }
+
+
+/* ── NOTES / ACCION INPUT ───────────────────────────────── */
+.nota-input {
+  width: 100%;
+  min-width: 130px;
+  border: none;
+  border-bottom: 1.5px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: var(--c-ink);
+  padding: 3px 2px;
+  resize: none;
+  outline: none;
+  transition: border-color .2s;
+  line-height: 1.4;
+  height: 26px;
+  overflow: hidden;
+  cursor: pointer;
+  display: block;
+}
+.nota-input::placeholder { color: var(--c-border); font-style: italic; }
+.nota-input:hover  { border-bottom-color: var(--c-muted); }
+.nota-input:focus  { border-bottom-color: var(--c-camino); cursor: text; height: auto; min-height: 26px; }
+.nota-saving { display: none; }
 
 /* ── TABLE CELL HELPERS ─────────────────────────────── */
 .td-mono    { font-family: monospace; font-size: 0.78rem; }
@@ -712,6 +824,591 @@ tbody tr.sku-expand-row td { border-top: none; padding-top: 0; }
   color: rgba(255,255,255,.2);
   text-align: center;
 }
+
+/* ── TABS ───────────────────────────────────────────────── */
+.tab-nav {
+  display: flex;
+  gap: 2px;
+  background: var(--c-ink);
+  padding: 0 24px;
+  flex-shrink: 0;
+}
+.tab-btn {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,.45);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
+.tab-btn:hover  { color: rgba(255,255,255,.8); }
+.tab-btn.active { color: #fff; border-bottom-color: #fff; }
+.tab-panel { display: none; flex: 1; min-height: 0; flex-direction: column; overflow: hidden; }
+.tab-panel.active { display: flex; }
+
+/* ── PROBLEMAS TAB ───────────────────────────────────────── */
+.prob-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border);
+  flex-shrink: 0;
+}
+.prob-search {
+  flex: 0 0 200px;
+  padding: 7px 12px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.82rem;
+  background: var(--c-bg);
+  color: var(--c-ink);
+  outline: none;
+}
+.prob-search:focus { border-color: var(--c-ink); }
+.prob-count { font-size: 0.75rem; color: var(--c-muted); margin-left: auto; }
+
+.prob-scroll { flex: 1; overflow: auto; min-height: 0; background: var(--c-surface); }
+.prob-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.prob-table thead th {
+  background: var(--c-beige);
+  color: var(--c-muted);
+  font-size: 0.67rem;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  padding: 10px 12px;
+  text-align: left;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  border-bottom: 1px solid var(--c-border);
+}
+.prob-table tbody tr { border-bottom: 1px solid var(--c-border); }
+.prob-table tbody tr:hover { background: #FAFAF8; }
+.prob-table td { padding: 8px 12px; vertical-align: middle; }
+
+.prob-select {
+  padding: 5px 24px 5px 8px;
+  border: 1.5px solid var(--c-border);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  background: var(--c-bg);
+  color: var(--c-ink);
+  outline: none;
+  cursor: pointer;
+  min-width: 160px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%239C948F' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+}
+.prob-select:focus { border-color: var(--c-ink); }
+.prob-select.tiene-valor { border-color: var(--c-warn); color: var(--c-warn); font-weight:500; }
+
+.prob-input {
+  width: 100%;
+  min-width: 120px;
+  padding: 5px 8px;
+  border: 1.5px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: var(--c-ink);
+  outline: none;
+  transition: border-color .15s, background .15s;
+}
+.prob-input:hover { border-color: var(--c-border); background: var(--c-bg); }
+.prob-input:focus { border-color: var(--c-camino); background: var(--c-surface); }
+
+.prob-sol-btn {
+  width: 22px; height: 22px;
+  border: 1.5px solid var(--c-border);
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: all .15s;
+  color: var(--c-muted);
+}
+.prob-sol-btn:hover  { border-color: var(--c-ok); color: var(--c-ok); }
+.prob-sol-btn.on { background: var(--c-ok); border-color: var(--c-ok); color: #fff; }
+
+/* ── MENSAJES TAB ─────────────────────────────────────────── */
+.msg-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px 28px;
+  overflow: auto;
+  background: var(--c-bg);
+}
+.msg-card {
+  background: var(--c-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.msg-card-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+.msg-textarea {
+  width: 100%;
+  min-height: 160px;
+  padding: 14px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', monospace;
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--c-ink);
+  background: var(--c-bg);
+  outline: none;
+  resize: vertical;
+}
+.msg-actions { display: flex; gap: 8px; align-items: center; }
+.btn-copy {
+  padding: 8px 18px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--c-ink);
+  background: var(--c-ink);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.btn-copy:hover { opacity: .85; }
+.btn-copy.copied { background: var(--c-ok); border-color: var(--c-ok); }
+.btn-regen {
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--c-border);
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: var(--c-muted);
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn-regen:hover { border-color: var(--c-ink); color: var(--c-ink); }
+.msg-note { font-size: 0.72rem; color: var(--c-muted); margin-left: auto; }
+
+
+/* ── BUTTON ANIMATIONS ──────────────────────────────────── */
+button { -webkit-tap-highlight-color: transparent; }
+
+.btn-refresh:active,
+.btn-copy:active,
+.btn-regen:active,
+.fbar-clear:active,
+.fbar-toggle:active,
+.tab-btn:active {
+  transform: scale(.95);
+}
+
+.sol-btn, .prob-sol-btn {
+  transition: all .15s cubic-bezier(.34,1.56,.64,1);
+}
+.sol-btn:active, .prob-sol-btn:active {
+  transform: scale(.82);
+}
+.sol-btn.sol-on, .prob-sol-btn.on {
+  animation: solPop .25s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes solPop {
+  0%   { transform: scale(.7); }
+  100% { transform: scale(1); }
+}
+
+.expand-btn {
+  transition: color .15s, background .15s, transform .15s;
+}
+.expand-btn:active { transform: scale(.8); }
+.expand-btn.open   { transform: rotate(0deg); }
+
+.echip {
+  transition: all .15s cubic-bezier(.34,1.56,.64,1);
+}
+.echip:active { transform: scale(.92); }
+
+/* Ripple en botones de copia */
+.btn-copy {
+  position: relative;
+  overflow: hidden;
+  transition: opacity .15s, transform .1s, background .2s, border-color .2s;
+}
+.btn-copy::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,.25);
+  opacity: 0;
+  border-radius: inherit;
+  transition: opacity .3s;
+}
+.btn-copy:active::after { opacity: 1; transition: none; }
+
+/* Quitar row: hover rojo */
+tr td button[title="Quitar"] {
+  transition: color .15s, transform .15s;
+}
+tr td button[title="Quitar"]:hover { color: var(--c-danger) !important; }
+tr td button[title="Quitar"]:active { transform: scale(.8); }
+
+
+/* ── PROB SUB-TABS ──────────────────────────────────────── */
+.prob-subtab-nav {
+  display: flex;
+  gap: 0;
+  background: var(--c-beige);
+  border-bottom: 1px solid var(--c-border);
+  padding: 0 20px;
+  flex-shrink: 0;
+}
+.prob-subtab {
+  padding: 9px 18px;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--c-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+  margin-bottom: -1px;
+}
+.prob-subtab:hover { color: var(--c-ink); }
+.prob-subtab.active { color: var(--c-ink); border-bottom-color: var(--c-ink); }
+.prob-subpanel { display: none; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; }
+.prob-subpanel.active { display: flex; }
+
+/* ── DASHBOARD ──────────────────────────────────────────── */
+.dash-wrap {
+  flex: 1;
+  overflow: auto;
+  padding: 20px 24px 32px;
+  background: var(--c-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.dash-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--c-surface);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  box-shadow: var(--shadow-sm);
+  flex-wrap: wrap;
+}
+.dash-filter label {
+  font-size: 0.75rem;
+  color: var(--c-muted);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dash-date {
+  padding: 6px 10px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: var(--c-ink);
+  background: var(--c-bg);
+  outline: none;
+  cursor: pointer;
+}
+.dash-date:focus { border-color: var(--c-ink); }
+.btn-dash-apply {
+  padding: 7px 16px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--c-ink);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity .15s, transform .1s;
+}
+.btn-dash-apply:hover { opacity: .85; }
+.btn-dash-apply:active { transform: scale(.95); }
+.dash-period-note { font-size: 0.72rem; color: var(--c-muted); margin-left: auto; }
+
+/* KPI cards */
+.dash-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+.dash-kpi {
+  background: var(--c-surface);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  border-left: 3px solid transparent;
+}
+.dash-kpi.k-total  { border-color: var(--c-ink); }
+.dash-kpi.k-pend   { border-color: var(--c-danger); }
+.dash-kpi.k-sol    { border-color: var(--c-ok); }
+.dash-kpi.k-rate   { border-color: var(--c-camino); }
+.dash-kpi-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+  margin-bottom: 8px;
+}
+.dash-kpi-num {
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: -1.5px;
+  line-height: 1;
+  color: var(--c-ink);
+}
+.dash-kpi.k-pend .dash-kpi-num { color: var(--c-danger); }
+.dash-kpi.k-sol  .dash-kpi-num { color: var(--c-ok); }
+.dash-kpi.k-rate .dash-kpi-num { color: var(--c-camino); }
+.dash-kpi-sub {
+  font-size: 0.7rem;
+  color: var(--c-muted);
+  margin-top: 4px;
+}
+
+/* Chart cards */
+.dash-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.dash-chart-card {
+  background: var(--c-surface);
+  border-radius: var(--radius-md);
+  padding: 20px 22px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.dash-chart-card.full { grid-column: 1 / -1; }
+.dash-chart-title {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+.dash-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.76rem;
+}
+.dash-bar-label {
+  width: 160px;
+  flex-shrink: 0;
+  color: var(--c-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.74rem;
+}
+.dash-bar-track {
+  flex: 1;
+  background: var(--c-beige);
+  border-radius: 4px;
+  height: 10px;
+  overflow: hidden;
+}
+.dash-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width .4s cubic-bezier(.4,0,.2,1);
+  background: var(--c-camino);
+}
+.dash-bar-fill.danger { background: var(--c-danger); }
+.dash-bar-fill.warn   { background: var(--c-warn); }
+.dash-bar-fill.ok     { background: var(--c-ok); }
+.dash-bar-fill.prep   { background: var(--c-prep); }
+.dash-bar-count {
+  width: 28px;
+  text-align: right;
+  font-weight: 600;
+  font-size: 0.78rem;
+  color: var(--c-ink);
+  flex-shrink: 0;
+}
+
+/* Timeline */
+.dash-timeline {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 80px;
+  padding-top: 8px;
+}
+.dash-tl-bar-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  height: 100%;
+  justify-content: flex-end;
+}
+.dash-tl-bar {
+  width: 100%;
+  background: var(--c-camino-bg);
+  border: 1.5px solid var(--c-camino);
+  border-radius: 3px 3px 0 0;
+  transition: height .3s;
+  min-height: 2px;
+  cursor: default;
+  position: relative;
+}
+.dash-tl-bar:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--c-ink);
+  color: #fff;
+  font-size: .65rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+}
+.dash-tl-label {
+  font-size: .58rem;
+  color: var(--c-muted);
+  transform: rotate(-45deg);
+  transform-origin: center;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+.dash-empty { text-align:center; color: var(--c-muted); font-size:.82rem; padding: 20px 0; }
+
+
+/* ── DÍAS SIN RESOLVER ──────────────────────────────── */
+.dias-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.dias-ok     { background: var(--c-ok-bg);     color: var(--c-ok); }
+.dias-warn   { background: var(--c-warn-bg);   color: var(--c-warn); }
+.dias-danger { background: var(--c-danger-bg); color: var(--c-danger); }
+
+/* ── PRIORIDAD ──────────────────────────────────────── */
+.prio-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 0.9rem; padding: 2px 4px;
+  opacity: .25; transition: opacity .15s, transform .15s;
+  line-height: 1;
+}
+.prio-btn:hover  { opacity: .6; }
+.prio-btn:active { transform: scale(.8); }
+.prio-btn.on     { opacity: 1; }
+
+/* ── MODO COMPACTO ──────────────────────────────────── */
+.density-toggle {
+  display: flex;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.density-btn {
+  padding: 5px 9px;
+  border: none;
+  background: transparent;
+  font-size: 0.85rem;
+  color: var(--c-muted);
+  cursor: pointer;
+  transition: all .15s;
+  font-family: inherit;
+  line-height: 1;
+}
+.density-btn:hover { background: var(--c-beige); color: var(--c-ink); }
+.density-btn.active { background: var(--c-ink); color: #fff; }
+
+/* ── COMPACT mode (excel-like) ── */
+body.compact table td,
+body.compact .prob-table td { padding: 2px 7px !important; font-size: 0.70rem !important; line-height: 1.2; }
+body.compact table thead th,
+body.compact .prob-table thead th { padding: 4px 7px !important; font-size: 0.60rem !important; }
+body.compact .badge { padding: 1px 5px; font-size: 0.60rem; }
+body.compact .expand-btn, body.compact .sol-btn, body.compact .prob-sol-btn { width: 16px; height: 16px; font-size: 0.60rem; }
+body.compact .dias-badge { font-size: 0.60rem; padding: 1px 4px; }
+body.compact .prio-btn { font-size: 0.65rem; }
+body.compact .p-late, body.compact .p-riesgo, body.compact .p-ok { font-size: 0.70rem; }
+
+/* ── AMPLIADO mode (for accessibility) ── */
+body.ampliado table td,
+body.ampliado .prob-table td { padding: 14px 16px !important; font-size: 0.96rem !important; }
+body.ampliado table thead th,
+body.ampliado .prob-table thead th { padding: 14px 16px !important; font-size: 0.78rem !important; }
+body.ampliado .badge { padding: 5px 12px; font-size: 0.80rem; }
+body.ampliado .dias-badge { font-size: 0.80rem; padding: 3px 8px; }
+
+/* ── COUNTDOWN ──────────────────────────────────────── */
+#refresh-countdown {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,.35);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
+}
+
+/* ── QUICK PERIOD CHIPS ─────────────────────────────── */
+.dash-period-chips { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.period-chip {
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1.5px solid var(--c-border);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--c-muted);
+  background: transparent;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.period-chip:hover  { border-color: var(--c-ink); color: var(--c-ink); }
+.period-chip.active { background: var(--c-ink); border-color: var(--c-ink); color: #fff; }
+
 </style>
 </head>
 <body>
@@ -745,18 +1442,30 @@ tbody tr.sku-expand-row td { border-top: none; padding-top: 0; }
 <!-- TOPBAR -->
 <header class="topbar">
   <div class="brand">
-    <span class="brand-name">hypnos</span>
+    <img src="logo.png" class="brand-logo" alt="hypnos">
     <span class="brand-sub">operaciones · pedidos</span>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
     <span id="status-text">sin datos</span>
+    <span id="refresh-countdown"></span>
     <button class="btn-refresh" onclick="fetchData()">↻ actualizar</button>
   </div>
 </header>
 
+<!-- TAB NAV -->
+<nav class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('tracking', this)">Tracking</button>
+  <button class="tab-btn" onclick="switchTab('problemas', this)">⚠ Problemas</button>
+  <button class="tab-btn" onclick="switchTab('mensajes', this)">Mensajes</button>
+</nav>
+
 <!-- APP LAYOUT -->
 <div class="app">
+
+<!-- ══ TAB: TRACKING ════════════════════════════════════════ -->
+<div id="tab-tracking" class="tab-panel active">
+<div style="display:flex;flex-direction:column;flex:1;min-height:0;">
 
   <!-- FILTER BAR -->
   <div class="filter-bar">
@@ -794,6 +1503,11 @@ tbody tr.sku-expand-row td { border-top: none; padding-top: 0; }
     <button class="fbar-toggle" id="btn-dspr" onclick="toggleDspr(this)">📅 Despacho Prog.</button>
     <div class="fbar-sep"></div>
     <button class="fbar-toggle" id="btn-sol" onclick="toggleVerSolucionados(this)">ver solucionados</button>
+    <div class="density-toggle" id="density-toggle">
+      <button class="density-btn" data-mode="compact" onclick="setDensity('compact',this)" title="Compacto">⊟</button>
+      <button class="density-btn active" data-mode="normal" onclick="setDensity('normal',this)" title="Normal">⊡</button>
+      <button class="density-btn" data-mode="ampliado" onclick="setDensity('ampliado',this)" title="Ampliado">⊞</button>
+    </div>
     <button class="fbar-clear" onclick="resetAll()">✕ limpiar</button>
     <span class="fbar-count" id="table-count">—</span>
   </div>
@@ -826,7 +1540,7 @@ tbody tr.sku-expand-row td { border-top: none; padding-top: 0; }
             </tr>
           </thead>
           <tbody id="tbody">
-            <tr><td colspan="15">
+            <tr><td colspan="14">
               <div class="placeholder">
                 <div class="big">◌</div>
                 <p>Cargando datos…</p>
@@ -838,14 +1552,158 @@ tbody tr.sku-expand-row td { border-top: none; padding-top: 0; }
     </div>
 
   </main>
-</div>
+</div><!-- /tracking inner -->
+</div><!-- /tab-tracking -->
+
+<!-- ══ TAB: PROBLEMAS ════════════════════════════════════════ -->
+<div id="tab-problemas" class="tab-panel">
+
+  <!-- Sub-tabs -->
+  <div class="prob-subtab-nav">
+    <button class="prob-subtab active" onclick="switchProbTab('lista',this)">Lista</button>
+    <button class="prob-subtab" onclick="switchProbTab('dashboard',this)">Dashboard</button>
+  </div>
+
+  <!-- LISTA -->
+  <div id="prob-lista" class="prob-subpanel active">
+  <div class="prob-toolbar">
+    <input type="text" id="prob-add-input" class="prob-search" placeholder="N° de orden (ej. 40086)…"
+      onkeydown="if(event.key==='Enter')addProbRow()">
+    <button class="btn-copy" style="padding:7px 16px;font-size:.78rem" onclick="addProbRow()">+ Agregar</button>
+    <div class="fbar-sep" style="height:22px"></div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--c-muted)">
+      <input type="checkbox" id="prob-show-sol" onchange="renderProblemas()">
+      ver solucionados
+    </label>
+    <span class="prob-count" id="prob-count">—</span>
+  </div>
+  <div class="prob-scroll">
+    <table class="prob-table">
+      <thead>
+        <tr>
+          <th style="width:28px"></th>
+          <th>Referencia</th>
+          <th>Tracking</th>
+          <th>Link</th>
+          <th>Días</th>
+          <th>Fecha</th>
+          <th>Promesa</th>
+          <th>Blue</th>
+          <th>Región</th>
+          <th>Comuna</th>
+          <th>Total</th>
+          <th style="text-align:center">✓ Sol.</th>
+          <th>Estado</th>
+          <th>Desc. Estado</th>
+          <th>Problema</th>
+          <th style="min-width:220px">Acción Pendiente</th>
+          <th>Teléfono</th>
+          <th style="width:28px"></th>
+        </tr>
+      </thead>
+      <tbody id="prob-tbody">
+        <tr><td colspan="11" class="placeholder"><p>Cargando…</p></td></tr>
+      </tbody>
+    </table>
+  </div>
+  </div><!-- /prob-lista -->
+
+  <!-- DASHBOARD -->
+  <div id="prob-dashboard" class="prob-subpanel">
+    <div class="dash-wrap">
+
+      <!-- Filtro fecha -->
+      <div class="dash-filter">
+        <div class="dash-period-chips">
+          <button class="period-chip" onclick="setPeriod(0,this)">Hoy</button>
+          <button class="period-chip" onclick="setPeriod(7,this)">7 días</button>
+          <button class="period-chip active" onclick="setPeriod(30,this)">30 días</button>
+          <button class="period-chip" onclick="setPeriod(90,this)">3 meses</button>
+          <button class="period-chip" onclick="setPeriod(-1,this)">Todo</button>
+        </div>
+        <div class="fbar-sep" style="height:22px"></div>
+        <label>Desde <input type="date" class="dash-date" id="dash-desde"></label>
+        <label>Hasta <input type="date" class="dash-date" id="dash-hasta"></label>
+        <button class="btn-dash-apply" onclick="renderDashboard()">Aplicar</button>
+        <span class="dash-period-note" id="dash-period-note">—</span>
+      </div>
+
+      <!-- KPIs -->
+      <div class="dash-kpi-row">
+        <div class="dash-kpi k-total">
+          <div class="dash-kpi-label">Total problemas</div>
+          <div class="dash-kpi-num" id="dk-total">—</div>
+          <div class="dash-kpi-sub" id="dk-total-sub"></div>
+        </div>
+        <div class="dash-kpi k-pend">
+          <div class="dash-kpi-label">Pendientes</div>
+          <div class="dash-kpi-num" id="dk-pend">—</div>
+          <div class="dash-kpi-sub" id="dk-pend-sub"></div>
+        </div>
+        <div class="dash-kpi k-sol">
+          <div class="dash-kpi-label">Solucionados</div>
+          <div class="dash-kpi-num" id="dk-sol">—</div>
+          <div class="dash-kpi-sub" id="dk-sol-sub"></div>
+        </div>
+        <div class="dash-kpi k-rate">
+          <div class="dash-kpi-label">Tasa resolución</div>
+          <div class="dash-kpi-num" id="dk-rate">—</div>
+          <div class="dash-kpi-sub">del total en período</div>
+        </div>
+      </div>
+
+      <!-- Charts grid -->
+      <div class="dash-charts">
+        <div class="dash-chart-card">
+          <div class="dash-chart-title">Por tipo de problema</div>
+          <div id="dk-chart-tipo"><div class="dash-empty">Sin datos</div></div>
+        </div>
+        <div class="dash-chart-card">
+          <div class="dash-chart-title">Por estado Blue</div>
+          <div id="dk-chart-estado"><div class="dash-empty">Sin datos</div></div>
+        </div>
+        <div class="dash-chart-card">
+          <div class="dash-chart-title">Por región</div>
+          <div id="dk-chart-region"><div class="dash-empty">Sin datos</div></div>
+        </div>
+        <div class="dash-chart-card">
+          <div class="dash-chart-title">Por servicio</div>
+          <div id="dk-chart-svc"><div class="dash-empty">Sin datos</div></div>
+        </div>
+        <div class="dash-chart-card full">
+          <div class="dash-chart-title">Problemas por día</div>
+          <div id="dk-timeline" style="display:flex;align-items:flex-end;gap:3px;height:90px;padding-top:8px"></div>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /prob-dashboard -->
+
+</div><!-- /tab-problemas -->
+
+<!-- ══ TAB: MENSAJES ═════════════════════════════════════════ -->
+<div id="tab-mensajes" class="tab-panel">
+  <div class="msg-panel">
+    <div class="msg-card">
+      <div class="msg-card-title">Mensaje — Problemas &amp; Retrasos</div>
+      <textarea class="msg-textarea" id="msg-blue" readonly></textarea>
+      <div class="msg-actions">
+        <button class="btn-copy" onclick="copyMsg('msg-blue', this)">Copiar</button>
+        <button class="btn-regen" onclick="buildMessages()">↻ Regenerar</button>
+        <span class="msg-note" id="msg-blue-count">—</span>
+      </div>
+    </div>
+  </div>
+</div><!-- /tab-mensajes -->
+
+</div><!-- /app -->
 
 <script>
 // ─────────────────────────────────────────────────────
 //  CONFIGURACIÓN — CAMBIA ESTA URL POR LA DE TU SCRIPT
 // ─────────────────────────────────────────────────────
 const LS_KEY = 'hypnos_script_url';
-let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxUydii7MgLjnbe7pdWvxEPLGcqBZSWRKUtJK7ZOvDQ-KY0F87UkTKVmI50ij8dY1JUkg/exec';
+let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzuImiU_gBz_lq4JrR6Ih810x48E75XzuuqjALsmcVdAi7H8hXfIHyS6cpSKhky8PDN2A/exec';
 
 // ─────────────────────────────────────────────────────
 //  ESTADO GLOBAL
@@ -863,7 +1721,7 @@ let filterDspr = false;
 // ─────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   // Auto-refresh cada 5 min (el primer fetch lo dispara show() en el módulo de auth)
-  setInterval(fetchData, 5 * 60 * 1000);
+  setInterval(fetchData, 30 * 60 * 1000);
 });
 
 // ─────────────────────────────────────────────────────
@@ -883,6 +1741,7 @@ function setStatus(state, text) {
 }
 
 async function fetchData() {
+  nextRefresh = Date.now() + 30*60*1000;
   if (!SCRIPT_URL) return;
   setStatus('loading', 'cargando…');
   const tbody = document.getElementById('tbody');
@@ -918,11 +1777,9 @@ async function fetchData() {
 // ─────────────────────────────────────────────────────
 function parsePromesa(str) {
   if (!str) return null;
-  // DD-MM-YYYY o YYYY-MM-DD
-  if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
-    const [d,m,y] = str.split('-');
-    return new Date(+y, +m-1, +d);
-  }
+  // DD-MM-YYYY o DD-MM-YYYY HH:mm (formato Apps Script)
+  const m = String(str).match(/^(\d{2})-(\d{2})-(\d{4})/);
+  if (m) return new Date(+m[3], +m[2]-1, +m[1]);
   const d = new Date(str);
   return isNaN(d) ? null : d;
 }
@@ -1091,6 +1948,7 @@ function badge(est) {
   if (e.includes('entregado')) return `<span class="badge b-ok">Entregado</span>`;
   if (e.includes('camino'))   return `<span class="badge b-camino">En Camino</span>`;
   if (e.includes('preparac')) return `<span class="badge b-prep">Preparación</span>`;
+  if (e.includes('tiempo de retiro')) return `<span class="badge b-warn">⏳ Retiro vencido</span>`;
   if (e.includes('problema')) return `<span class="badge b-warn">Problema</span>`;
   if (e.includes('devuelto')) return `<span class="badge b-danger">Devuelto</span>`;
   return `<span class="badge b-prep">${est||'—'}</span>`;
@@ -1099,10 +1957,12 @@ function badge(est) {
 function promesaHTML(row) {
   const p = row.promesa_entrega;
   if (!p) return '<span class="p-none">—</span>';
+  // Mostrar solo fecha, sin hora
+  const pShort = String(p).slice(0, 10);
   const ep = estadoPromesa(row);
-  if (ep === 'vencida') return `<span class="p-late">⏰ ${p}</span>`;
-  if (ep === 'riesgo')  return `<span class="p-riesgo">◑ ${p}</span>`;
-  return `<span class="p-ok">${p}</span>`;
+  if (ep === 'vencida') return `<span class="p-late">⏰ ${pShort}</span>`;
+  if (ep === 'riesgo')  return `<span class="p-riesgo">◑ ${pShort}</span>`;
+  return `<span class="p-ok">${pShort}</span>`;
 }
 
 // ─────────────────────────────────────────────────────
@@ -1259,15 +2119,79 @@ function toggleExpand(ref) {
 
     const chips = String(skus).split(',').map(s => s.trim()).filter(Boolean)
       .map(s => `<span class="sku-chip">${esc(s)}</span>`).join('') || esc(skus);
+
+    // Fotos de evidencia de entrega (Blue Express)
+    const fotosRaw = raw ? (raw.fotos_evidencia || raw.fotosEvidencia || raw.fotos || raw.photos || '') : '';
+    const fotoUrls = String(fotosRaw).split(',').map(s => s.trim()).filter(s => s.startsWith('http'));
+    const fotosHtml = fotoUrls.length
+      ? `<div class="sku-fotos-row" id="fotos-${esc(ref)}">
+           <span class="sku-label">Evidencia:</span>
+           <div class="sku-fotos-grid" id="fotos-grid-${esc(ref)}">
+             <span class="hist-fecha" style="font-style:italic">cargando fotos…</span>
+           </div>
+         </div>`
+      : '';
+
+    // Historial de estados
+    const histRaw = raw ? (raw.historial_estados || raw.historial || '') : '';
+    const histHtml = histRaw
+      ? `<div class="hist-row">
+           <span class="sku-label">Historial:</span>
+           <div class="hist-list">${
+             histRaw.split(';;').filter(Boolean).map(ev => {
+               const [fecha, estado, desc] = ev.split('|');
+               const e = (estado||'').toLowerCase();
+               const cls = e.includes('entregado') ? 'ok'
+                 : e.includes('camino') ? 'camino'
+                 : e.includes('problema') ? 'danger'
+                 : e.includes('preparac') || e.includes('retirado') ? 'prep'
+                 : 'prep';
+               return `<div class="hist-item">
+                 <span class="hist-fecha">${esc(fecha||'')}</span>
+                 <span class="hist-badge ${cls}">${esc(estado||'')}</span>
+                 <span class="hist-desc">${esc(desc||'')}</span>
+               </div>`;
+             }).join('')
+           }</div>
+         </div>`
+      : '';
+
     const skuTr = document.createElement('tr');
     skuTr.className = 'sku-expand-row';
     skuTr.innerHTML = `<td></td><td colspan="14">
       <div class="sku-detail">
-        <span class="sku-label">SKUs:</span>
-        <span class="sku-chips">${chips}</span>
-
+        <div class="sku-detail-inner">
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <span class="sku-label">SKUs:</span>
+            <span class="sku-chips">${chips}</span>
+          </div>
+          ${fotosHtml}
+          ${histHtml}
+        </div>
       </div></td>`;
     tr.insertAdjacentElement('afterend', skuTr);
+
+    // Cargar fotos via proxy si hay URLs
+    if (fotoUrls.length) {
+      const grid = document.getElementById(`fotos-grid-${ref}`);
+      if (grid) {
+        fetch(SCRIPT_URL + '?action=getFotos&urls=' + encodeURIComponent(fotoUrls.join(',')))
+          .then(r => r.json())
+          .then(data => {
+            if (!data.ok || !data.fotos?.length) {
+              grid.innerHTML = '<span class="hist-fecha" style="font-style:italic;color:var(--c-danger)">fotos no disponibles</span>';
+              return;
+            }
+            grid.innerHTML = data.fotos.map((src, i) =>
+              `<img class="sku-foto-thumb" src="${src}" loading="lazy"
+                    onclick="openLightbox(this.src)" title="Ver foto ${i+1}" style="cursor:zoom-in">`
+            ).join('');
+          })
+          .catch(() => {
+            if (grid) grid.innerHTML = '<span class="hist-fecha" style="color:var(--c-danger)">error cargando fotos</span>';
+          });
+      }
+    }
   }
 }
 
@@ -1322,7 +2246,7 @@ function renderTable(rows) {
     const track   = r.tracking || '—';
     const isDspr  = hasDspr(r);
     const link    = r.link_seguimiento || r.link_se || '';
-    const fecha   = String(getField(r,'fecha_creacion')||'').slice(0,16);
+    const fecha   = String(getField(r,'fecha_creacion')||'').slice(0,10);
     const stark   = r.envio_starkoms || '—';
     const blue    = getField(r,'envio_blue') || '—';
     const region  = getField(r,'region_destino','Region_destino') || '—';
@@ -1338,11 +2262,11 @@ function renderTable(rows) {
       <td style="text-align:center;padding:0 4px">
         <button class="expand-btn${expanded?' open':''}" onclick="toggleExpand('${esc(ref)}')">${expanded?'&#9660;':'&#9654;'}</button>
       </td>
-      <td class="td-ref" style="white-space:nowrap">${esc(ref)}${isDspr ? `<span class="badge-dspr"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Prog.</span>` : ''}</td>
+      <td class="td-ref" style="white-space:nowrap">${esc(ref)}</td>
       <td class="td-mono">${esc(track)}</td>
-      <td>${link ? `<a class="track-link" href="${link}" target="_blank">&#128279;</a>` : '<span class="td-muted">—</span>'}</td>
+      <td>${link ? `<a class="track-link" href="${link}" target="_blank" style="font-size:1.1rem;line-height:1">&#128279;</a>` : '<span class="td-muted">—</span>'}</td>
       <td class="td-muted td-nowrap">${esc(fecha)}</td>
-      <td>${promesaHTML(r)}</td>
+      <td>${isDspr && !r.promesa_entrega ? '<span class="p-dspr">📅 Programar envío</span>' : promesaHTML(r)}</td>
       <td class="td-svc">${esc(stark)}</td>
       <td class="td-svc">${esc(blue)}</td>
       <td class="td-muted">${esc(region)}</td>
@@ -1358,7 +2282,6 @@ function renderTable(rows) {
           onblur="saveNota('${esc(ref)}', this.value)"
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur()}"
         >${esc(nota)}</textarea>
-        <span class="nota-saving">guardando…</span>
       </td>
     </tr>`;
   }).join('');
@@ -1420,7 +2343,618 @@ function resetAll() {
   document.getElementById('f-hasta').value = '';
   renderAll();
 }
+
+// ─────────────────────────────────────────────────────
+//  TABS
+// ─────────────────────────────────────────────────────
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name === 'problemas') renderProblemas();
+  // Set default dashboard dates on first open
+  if (name === 'problemas') {
+    const dd = document.getElementById('dash-hasta');
+    if (dd && !dd.value) {
+      const now  = new Date();
+      const ago  = new Date(now); ago.setDate(ago.getDate() - 30);
+      dd.value = now.toISOString().slice(0,10);
+      const ddD = document.getElementById('dash-desde');
+      if (ddD) ddD.value = ago.toISOString().slice(0,10);
+    }
+  }
+  if (name === 'mensajes')  buildMessages();
+}
+
+// ─────────────────────────────────────────────────────
+//  PROBLEMAS — localStorage
+// ─────────────────────────────────────────────────────
+const PROB_KEY = 'hypnos_prob';
+const PROBLEMAS_OPTS = [
+  '', 'Quiebre físico', 'Pedido Incompleto', 'Pedido Cruzado',
+  'Producto cruzado', 'Quiebre sistémico', 'Demora en Despachar',
+  'Cancelar Pedido', 'Sin Boleta', 'Base de cama rota',
+  'Pedido Dañado', 'Desconocimiento de Entrega',
+  'Tiempo de retiro vencido', 'Dirección incorrecta',
+  'Cliente no contesta', 'Devolución en curso', 'Otro'
+];
+
+function getProbMap() {
+  try { return JSON.parse(localStorage.getItem(PROB_KEY) || '{}'); } catch { return {}; }
+}
+function saveProbField(ref, field, val) {
+  const map = getProbMap();
+  if (!map[ref]) map[ref] = {};
+  map[ref][field] = val;
+  localStorage.setItem(PROB_KEY, JSON.stringify(map));
+}
+function getProbData(ref) {
+  const map = getProbMap();
+  return map[ref] || {};
+}
+
+const PROB_REFS_KEY = 'hypnos_prob_refs';
+let probExpandedRows = new Set();
+
+function getProbRefs() {
+  try { return JSON.parse(localStorage.getItem(PROB_REFS_KEY) || '[]'); } catch { return []; }
+}
+function saveProbRefs(arr) {
+  localStorage.setItem(PROB_REFS_KEY, JSON.stringify(arr));
+}
+
+function addProbRow() {
+  const inp = document.getElementById('prob-add-input');
+  if (!inp) return;
+  const val = inp.value.trim();
+  if (!val) return;
+  const refs = getProbRefs();
+  if (!refs.includes(val)) {
+    refs.unshift(val); // agregar al principio
+    saveProbRefs(refs);
+  }
+  inp.value = '';
+  renderProblemas();
+}
+
+function removeProbRow(ref) {
+  const refs = getProbRefs().filter(r => r !== ref);
+  saveProbRefs(refs);
+  probExpandedRows.delete(ref);
+  renderProblemas();
+}
+
+function probRows() {
+  const refs = getProbRefs();
+  return refs.map(ref => {
+    const row = DATA_RAW.find(r => (r.referencia || r.id || '') === ref);
+    return row || { referencia: ref, _notFound: true };
+  });
+}
+
+function toggleProbSol(ref) {
+  const d = getProbData(ref);
+  const sol = !d.solucionado;
+  saveProbField(ref, 'solucionado', sol);
+  renderProblemas();
+  const url = SCRIPT_URL + '?action=setSolucionado&ref=' + encodeURIComponent(ref) + '&val=' + sol;
+  fetch(url).catch(() => {});
+}
+
+function toggleProbExpand(ref) {
+  const tr   = document.querySelector(`tr[data-prob-ref="${CSS.escape(ref)}"]`);
+  if (!tr) return;
+  const btn  = tr.querySelector('.expand-btn');
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains('prob-expand-row')) {
+    next.remove();
+    probExpandedRows.delete(ref);
+    btn.classList.remove('open');
+    btn.innerHTML = '&#9654;';
+  } else {
+    probExpandedRows.add(ref);
+    btn.classList.add('open');
+    btn.innerHTML = '&#9660;';
+    const raw  = DATA_RAW.find(r => (r.referencia || r.id) === ref);
+    const skus = raw ? getSKU(raw) : '—';
+    const chips = String(skus).split(',').map(s => s.trim()).filter(Boolean)
+      .map(s => `<span class="sku-chip">${esc(s)}</span>`).join('') || esc(skus);
+
+    const fotosRaw2 = raw ? (raw.fotos_evidencia || raw.fotosEvidencia || raw.fotos || raw.photos || '') : '';
+    const fotoUrls2 = String(fotosRaw2).split(',').map(s => s.trim()).filter(s => s.startsWith('http'));
+    const fotosHtml2 = fotoUrls2.length
+      ? `<div class="sku-fotos-row" id="fotos-prob-${esc(ref)}">
+           <span class="sku-label">Evidencia:</span>
+           <div class="sku-fotos-grid" id="fotos-prob-grid-${esc(ref)}">
+             <span class="hist-fecha" style="font-style:italic">cargando fotos…</span>
+           </div>
+         </div>`
+      : '';
+
+    const histRaw2 = raw ? (raw.historial_estados || raw.historial || '') : '';
+    const histHtml2 = histRaw2
+      ? `<div class="hist-row">
+           <span class="sku-label">Historial:</span>
+           <div class="hist-list">${
+             histRaw2.split(';;').filter(Boolean).map(ev => {
+               const [fecha, estado, desc] = ev.split('|');
+               const e = (estado||'').toLowerCase();
+               const cls = e.includes('entregado') ? 'ok'
+                 : e.includes('camino') ? 'camino'
+                 : e.includes('problema') ? 'danger'
+                 : 'prep';
+               return `<div class="hist-item">
+                 <span class="hist-fecha">${esc(fecha||'')}</span>
+                 <span class="hist-badge ${cls}">${esc(estado||'')}</span>
+                 <span class="hist-desc">${esc(desc||'')}</span>
+               </div>`;
+             }).join('')
+           }</div>
+         </div>`
+      : '';
+
+    const skuTr = document.createElement('tr');
+    skuTr.className = 'prob-expand-row sku-expand-row';
+    skuTr.innerHTML = `<td></td><td colspan="15">
+      <div class="sku-detail">
+        <div class="sku-detail-inner">
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <span class="sku-label">SKUs:</span>
+            <span class="sku-chips">${chips}</span>
+          </div>
+          ${fotosHtml2}
+          ${histHtml2}
+        </div>
+      </div></td>`;
+    tr.insertAdjacentElement('afterend', skuTr);
+
+    if (fotoUrls2.length) {
+      const grid2 = document.getElementById(`fotos-prob-grid-${ref}`);
+      if (grid2) {
+        fetch(SCRIPT_URL + '?action=getFotos&urls=' + encodeURIComponent(fotoUrls2.join(',')))
+          .then(r => r.json())
+          .then(data => {
+            if (!data.ok || !data.fotos?.length) {
+              grid2.innerHTML = '<span class="hist-fecha" style="font-style:italic;color:var(--c-danger)">fotos no disponibles</span>';
+              return;
+            }
+            grid2.innerHTML = data.fotos.map((src, i) =>
+              `<img class="sku-foto-thumb" src="${src}" loading="lazy"
+                    onclick="openLightbox(this.src)" title="Ver foto ${i+1}" style="cursor:zoom-in">`
+            ).join('');
+          })
+          .catch(() => {
+            if (grid2) grid2.innerHTML = '<span class="hist-fecha" style="color:var(--c-danger)">error cargando fotos</span>';
+          });
+      }
+    }
+  }
+}
+
+function renderProblemas() {
+  const showSol = document.getElementById('prob-show-sol')?.checked;
+  let rows = probRows();
+  if (!showSol) rows = rows.filter(r => {
+    const ref = r.referencia || r.id || '';
+    return !getProbData(ref).solucionado;
+  });
+  // Sort: urgentes primero, luego por días desc
+  rows.sort((a, b) => {
+    const ra = a.referencia || a.id || '', rb = b.referencia || b.id || '';
+    const pa = getPrio(ra) ? 1 : 0, pb = getPrio(rb) ? 1 : 0;
+    if (pa !== pb) return pb - pa;
+    const da = daysSince(getField(a,'fecha_creacion')) ?? -1;
+    const db = daysSince(getField(b,'fecha_creacion')) ?? -1;
+    return db - da;
+  });
+
+  const countEl = document.getElementById('prob-count');
+  if (countEl) countEl.textContent = rows.length + ' pedido' + (rows.length !== 1 ? 's' : '');
+
+  const tbody = document.getElementById('prob-tbody');
+  if (!tbody) return;
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="17"><div class="placeholder"><p>Agrega un pedido con el campo de arriba.</p></div></td></tr>';
+    return;
+  }
+
+  const optsHtml = PROBLEMAS_OPTS.map(o =>
+    `<option value="${esc(o)}">${o || '— tipo de problema —'}</option>`
+  ).join('');
+
+  tbody.innerHTML = rows.map(r => {
+    const ref      = r.referencia || r.id || '—';
+    const notFound = !!r._notFound;
+    const d        = getProbData(ref);
+    const sol      = !!d.solucionado;
+    const track    = r.tracking || '—';
+    const link     = r.link_seguimiento || r.link_se || '';
+    const fecha    = String(getField(r,'fecha_creacion')||'').slice(0,10);
+    const blue     = getField(r,'envio_blue') || '—';
+    const region   = getField(r,'region_destino','Region_destino') || '—';
+    const comuna   = r.comuna_destino || '—';
+    const total    = r.total_paid ? '$'+Number(r.total_paid).toLocaleString('es-CL') : '—';
+    const ep       = estadoPromesa(r);
+    const rowCls   = sol ? 'row-sol' : notFound ? '' : ep === 'vencida' ? 'row-vencida' : String(r.estado_blue||'').toLowerCase().includes('problema') ? 'row-problema' : '';
+    const expanded = probExpandedRows.has(ref);
+
+    return `<tr class="${rowCls}" data-prob-ref="${esc(ref)}">
+      <td style="text-align:center;padding:0 4px">
+        <button class="expand-btn${expanded?' open':''}" onclick="toggleProbExpand('${esc(ref)}')">${expanded?'&#9660;':'&#9654;'}</button>
+      </td>
+      <td class="td-ref" style="white-space:nowrap">${esc(ref)}${notFound?'<span style="color:var(--c-muted);font-size:.7rem;margin-left:4px">(sin datos)</span>':''} <button class="prio-btn${getPrio(ref)?' on':''}" data-ref="${esc(ref)}" onclick="togglePrio('${esc(ref)}')" title="${getPrio(ref)?'Quitar urgente':'Marcar urgente'}">🚩</button></td>
+      <td class="td-mono">${notFound?'—':esc(track)}</td>
+      <td>${link ? `<a class="track-link" href="${esc(link)}" target="_blank" style="font-size:1.1rem;line-height:1">&#128279;</a>` : '<span class="td-muted">—</span>'}</td>
+      <td style="text-align:center">${notFound?'<span class="td-muted">—</span>':diasBadge(r.fecha_creacion||getField(r,'fecha_creacion'))}</td>
+      <td class="td-muted td-nowrap">${esc(fecha)}</td>
+      <td>${notFound?'<span class="td-muted">—</span>':promesaHTML(r)}</td>
+      <td class="td-svc">${notFound?'—':esc(blue)}</td>
+      <td class="td-muted">${notFound?'—':esc(region)}</td>
+      <td>${notFound?'—':esc(comuna)}</td>
+      <td class="td-num">${notFound?'—':total}</td>
+      <td style="text-align:center">
+        <button class="prob-sol-btn${sol?' on':''}" onclick="toggleProbSol('${esc(ref)}')">${sol?'✓':'○'}</button>
+      </td>
+      <td>${notFound?'<span class="td-muted">—</span>':badge(r.estado_blue)}</td>
+      <td class="td-muted td-truncate" style="max-width:140px" title="${esc(r.desc_estado||'')}">${notFound?'—':esc(r.desc_estado||'—')}</td>
+      <td>
+        <select class="prob-select${d.problema?' tiene-valor':''}" onchange="saveProbField('${esc(ref)}','problema',this.value);this.classList.toggle('tiene-valor',!!this.value)">
+          ${optsHtml}
+        </select>
+      </td>
+      <td style="padding:4px 8px;min-width:220px">
+        <textarea class="nota-input" rows="2" placeholder="acción pendiente…" style="min-width:210px;height:38px;border-bottom-color:var(--c-border)"
+          onblur="saveProbField('${esc(ref)}','accion',this.value)"
+          onkeydown="if(event.key==='Enter'&&event.ctrlKey){event.preventDefault();this.blur()}"
+        >${esc(d.accion||'')}</textarea>
+      </td>
+      <td><input class="prob-input" value="${esc(d.telefono||'')}" placeholder="+569…" onblur="saveProbField('${esc(ref)}','telefono',this.value)" style="min-width:110px"></td>
+      <td style="text-align:center;padding:0 4px">
+        <button onclick="removeProbRow('${esc(ref)}')" style="background:none;border:none;cursor:pointer;color:var(--c-muted);font-size:.9rem;padding:4px" title="Quitar">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Restore dropdowns
+  tbody.querySelectorAll('tr[data-prob-ref]').forEach(tr => {
+    const ref = tr.dataset.probRef;
+    const d   = getProbData(ref);
+    const sel = tr.querySelector('.prob-select');
+    if (sel && d.problema) sel.value = d.problema;
+  });
+}
+
+// ─────────────────────────────────────────────────────
+//  MENSAJES
+// ─────────────────────────────────────────────────────
+function carrierId(r) {
+  const svc = String(r.envio_starkoms || r.envio_blue_raw || '').toLowerCase();
+  if (svc.includes('flex') || svc.includes('meli')) return 'Flex';
+  if (svc.includes('paris')) return 'Paris';
+  if (svc.includes('ripley')) return 'Ripley';
+  if (svc.includes('falabella')) return 'Falabella';
+  return null; // Blue Express
+}
+
+function buildMessages() {
+  // Todos los pedidos con problema/retraso, no solucionados
+  const solMap  = getSolMap();
+  const probMap2 = getProbMap();
+  const probs = DATA_RAW.filter(r => {
+    const ref = r.referencia || r.id || '';
+    // localStorage override tiene prioridad sobre el sheet
+    if (ref in solMap) { if (solMap[ref]) return false; }
+    else if (isSolFromSheet(r)) return false;
+    if (probMap2[ref]?.solucionado) return false;
+    const est = String(r.estado_blue || '').toLowerCase();
+    const ep  = estadoPromesa(r);
+    const esProb    = est.includes('problema');
+    const esVencida = ep === 'vencida' && !est.includes('entregado') && !est.includes('devuelto');
+    return esProb || esVencida;
+  });
+
+  if (!probs.length) {
+    const ta = document.getElementById('msg-blue');
+    if (ta) ta.value = '(Sin pedidos con problemas activos)';
+    const c = document.getElementById('msg-blue-count');
+    if (c) c.textContent = '0 pedidos';
+    return;
+  }
+
+  const lines = ['Nos ayudan con los siguientes pedidos:'];
+  probs.forEach(r => {
+    const ref     = r.referencia || r.id || '';
+    const track   = r.tracking || '';
+    const carrier = carrierId(r);
+    if (carrier) {
+      lines.push(`${ref} (${carrier})`);
+    } else {
+      // Blue Express: mostrar referencia + OS tracking si son distintos
+      if (track && track !== ref) {
+        lines.push(`${ref} (OS ${track})`);
+      } else {
+        lines.push(ref);
+      }
+    }
+  });
+
+  const msg = lines.join('\n');
+  const ta  = document.getElementById('msg-blue');
+  if (ta) ta.value = msg;
+  const c = document.getElementById('msg-blue-count');
+  if (c) c.textContent = probs.length + ' pedidos';
+}
+
+function copyMsg(id, btn) {
+  const ta = document.getElementById(id);
+  if (!ta) return;
+  navigator.clipboard.writeText(ta.value).then(() => {
+    btn.textContent = '✓ Copiado';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copiar'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// ─────────────────────────────────────────────────────
+//  PROB SUB-TABS
+// ─────────────────────────────────────────────────────
+function switchProbTab(name, btn) {
+  document.querySelectorAll('.prob-subpanel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.prob-subtab').forEach(b => b.classList.remove('active'));
+  document.getElementById('prob-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name === 'dashboard') renderDashboard();
+}
+
+// ─────────────────────────────────────────────────────
+//  DASHBOARD
+// ─────────────────────────────────────────────────────
+function toISO(ddmmyyyy) {
+  // Convierte DD-MM-YYYY → YYYY-MM-DD para comparar con inputs de fecha
+  const m = String(ddmmyyyy || '').match(/^(\d{2})-(\d{2})-(\d{4})/);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  return String(ddmmyyyy || '').slice(0,10); // ya viene en ISO
+}
+
+function dashRows() {
+  const desde = document.getElementById('dash-desde')?.value || '';
+  const hasta = document.getElementById('dash-hasta')?.value || '';
+  const refs  = getProbRefs();
+  return refs
+    .map(ref => DATA_RAW.find(r => (r.referencia || r.id || '') === ref) || { referencia: ref, _notFound: true })
+    .filter(r => {
+      if (desde || hasta) {
+        const fc = toISO(getField(r,'fecha_creacion') || '');
+        if (desde && fc < desde) return false;
+        if (hasta && fc > hasta) return false;
+      }
+      return true;
+    });
+}
+
+function isSolEffective(r) {
+  const ref = r.referencia || r.id || '';
+  const solMap = getSolMap();
+  if (ref in solMap) return solMap[ref];
+  if (isSolFromSheet(r)) return true;
+  return !!getProbMap()[ref]?.solucionado;
+}
+
+function renderBarChart(containerId, data, colorFn) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!data.length) { el.innerHTML = '<div class="dash-empty">Sin datos en el período</div>'; return; }
+  const max = data[0].n;
+  el.innerHTML = data.map(d => `
+    <div class="dash-bar-row">
+      <div class="dash-bar-label" title="${esc(d.label)}">${esc(d.label || '—')}</div>
+      <div class="dash-bar-track">
+        <div class="dash-bar-fill ${colorFn ? colorFn(d.label) : ''}"
+             style="width:${max ? Math.round(d.n/max*100) : 0}%"></div>
+      </div>
+      <div class="dash-bar-count">${d.n}</div>
+    </div>`).join('');
+}
+
+function countBy(rows, keyFn) {
+  const map = {};
+  rows.forEach(r => {
+    const k = keyFn(r) || '—';
+    map[k] = (map[k] || 0) + 1;
+  });
+  return Object.entries(map)
+    .map(([label, n]) => ({ label, n }))
+    .sort((a, b) => b.n - a.n);
+}
+
+function renderDashboard() {
+  const rows  = dashRows();
+  const solMap = getSolMap();
+  const probMap = getProbMap();
+
+  const solucionados = rows.filter(r => isSolEffective(r));
+  const pendientes   = rows.filter(r => !isSolEffective(r));
+  const total = rows.length;
+  const nSol  = solucionados.length;
+  const nPend = pendientes.length;
+  const rate  = total ? Math.round(nSol / total * 100) : 0;
+
+  // Date range label
+  const desde = document.getElementById('dash-desde')?.value || '';
+  const hasta = document.getElementById('dash-hasta')?.value || '';
+  const noteEl = document.getElementById('dash-period-note');
+  const fmtDate = iso => iso ? iso.split('-').reverse().join('-') : '';
+  if (noteEl) {
+    noteEl.textContent = desde || hasta
+      ? `${fmtDate(desde) || '…'} → ${fmtDate(hasta) || 'hoy'} · ${total} pedido${total!==1?'s':''}`
+      : `Todos los datos · ${total} pedido${total!==1?'s':''}`;
+  }
+
+  // KPIs
+  const set2 = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  set2('dk-total',    total);
+  set2('dk-total-sub', 'con problema o vencidos');
+  set2('dk-pend',    nPend);
+  set2('dk-pend-sub', 'sin resolver');
+  set2('dk-sol',     nSol);
+  set2('dk-sol-sub', 'marcados como solucionados');
+  set2('dk-rate',    rate + '%');
+
+  // Chart: por tipo de problema (from prob-map)
+  const tipoData = countBy(rows, r => {
+    const ref = r.referencia || r.id || '';
+    return probMap[ref]?.problema || '(sin clasificar)';
+  });
+  renderBarChart('dk-chart-tipo', tipoData, lbl => lbl === '(sin clasificar)' ? 'prep' : '');
+
+  // Chart: por estado blue
+  const estadoData = countBy(rows, r => r.desc_estado || r.estado_blue || '—');
+  const estadoColor = lbl => {
+    const l = lbl.toLowerCase();
+    if (l.includes('devoluci') || l.includes('rechaz')) return 'danger';
+    if (l.includes('nadie') || l.includes('cerrado') || l.includes('acceso')) return 'warn';
+    return '';
+  };
+  renderBarChart('dk-chart-estado', estadoData.slice(0,8), estadoColor);
+
+  // Chart: por región
+  const regionData = countBy(rows, r => getField(r,'region_destino','Region_destino') || '—');
+  renderBarChart('dk-chart-region', regionData.slice(0,8), () => 'warn');
+
+  // Chart: por servicio
+  const svcData = countBy(rows, r => getField(r,'envio_blue') || r.envio_starkoms || '—');
+  renderBarChart('dk-chart-svc', svcData, () => '');
+
+  // Timeline: por día
+  const byDay = {};
+  rows.forEach(r => {
+    const d = String(getField(r,'fecha_creacion')||'').slice(0,10);
+    if (d) byDay[d] = (byDay[d] || 0) + 1;
+  });
+  const days = Object.keys(byDay).sort();
+  const tlEl = document.getElementById('dk-timeline');
+  if (tlEl) {
+    if (!days.length) {
+      tlEl.innerHTML = '<div class="dash-empty" style="width:100%">Sin datos</div>';
+    } else {
+      const maxDay = Math.max(...Object.values(byDay));
+      tlEl.innerHTML = days.map(d => {
+        const n    = byDay[d];
+        const pct  = maxDay ? Math.round(n / maxDay * 100) : 0;
+        const label = d.slice(5); // MM-DD
+        return `<div class="dash-tl-bar-wrap" title="${d}: ${n} pedidos">
+          <div class="dash-tl-bar" style="height:${Math.max(pct,3)}%;width:100%" data-tip="${d}: ${n}"></div>
+          <div class="dash-tl-label">${label}</div>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────
+//  COUNTDOWN AUTO-REFRESH
+// ─────────────────────────────────────────────────────
+let nextRefresh = Date.now() + 30*60*1000;
+function updateCountdown() {
+  const el = document.getElementById('refresh-countdown');
+  if (!el) return;
+  const left = Math.max(0, nextRefresh - Date.now());
+  const m = String(Math.floor(left/60000)).padStart(2,'0');
+  const s = String(Math.floor((left%60000)/1000)).padStart(2,'0');
+  el.textContent = `↻ ${m}:${s}`;
+}
+setInterval(updateCountdown, 1000);
+updateCountdown();
+// Reset countdown when data is fetched
+const _origFetch = fetchData;
+// Patch after DOMContentLoaded
+
+// ─────────────────────────────────────────────────────
+//  MODO COMPACTO
+// ─────────────────────────────────────────────────────
+function setDensity(mode, btn) {
+  document.body.classList.remove('compact','ampliado');
+  if (mode !== 'normal') document.body.classList.add(mode);
+  document.querySelectorAll('.density-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+}
+
+// ─────────────────────────────────────────────────────
+//  DÍAS SIN RESOLVER
+// ─────────────────────────────────────────────────────
+function daysSince(ddmmyyyy) {
+  const m = String(ddmmyyyy || '').match(/^(\d{2})-(\d{2})-(\d{4})/);
+  if (!m) return null;
+  const d = new Date(+m[3], +m[2]-1, +m[1]);
+  return Math.floor((todayDate() - d) / (1000*60*60*24));
+}
+function diasBadge(ddmmyyyy) {
+  const n = daysSince(ddmmyyyy);
+  if (n === null) return '<span class="td-muted">—</span>';
+  const cls = n <= 2 ? 'dias-ok' : n <= 6 ? 'dias-warn' : 'dias-danger';
+  return `<span class="dias-badge ${cls}">${n}d</span>`;
+}
+
+// ─────────────────────────────────────────────────────
+//  PRIORIDAD
+// ─────────────────────────────────────────────────────
+function getPrio(ref) { return !!getProbData(ref).prio; }
+function togglePrio(ref) {
+  saveProbField(ref, 'prio', !getPrio(ref));
+  const btn = document.querySelector(`.prio-btn[data-ref="${CSS.escape(ref)}"]`);
+  if (btn) {
+    const on = getPrio(ref);
+    btn.classList.toggle('on', on);
+    btn.title = on ? 'Quitar urgente' : 'Marcar urgente';
+  }
+  // Re-sort visually
+  renderProblemas();
+}
+
+// ─────────────────────────────────────────────────────
+//  QUICK PERIOD CHIPS
+// ─────────────────────────────────────────────────────
+function setPeriod(days, btn) {
+  document.querySelectorAll('.period-chip').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const now   = new Date();
+  const hasta = now.toISOString().slice(0,10);
+  const dDesde = document.getElementById('dash-desde');
+  const dHasta = document.getElementById('dash-hasta');
+  if (!dHasta || !dDesde) return;
+  if (days === -1) { dDesde.value = ''; dHasta.value = ''; }
+  else if (days === 0) { dDesde.value = hasta; dHasta.value = hasta; }
+  else {
+    const ago = new Date(now); ago.setDate(ago.getDate() - days);
+    dDesde.value = ago.toISOString().slice(0,10);
+    dHasta.value = hasta;
+  }
+  renderDashboard();
+}
+
 </script>
 </div><!-- /app-wrapper -->
+
+<!-- LIGHTBOX -->
+<div id="lightbox" onclick="closeLightbox()">
+  <button id="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img id="lightbox-img" src="" onclick="event.stopPropagation()">
+</div>
+<script>
+function openLightbox(src) {
+  const lb  = document.getElementById('lightbox');
+  const img = document.getElementById('lightbox-img');
+  img.src = src;
+  lb.classList.add('open');
+  document.addEventListener('keydown', lbKeyHandler);
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.getElementById('lightbox-img').src = '';
+  document.removeEventListener('keydown', lbKeyHandler);
+}
+function lbKeyHandler(e) { if (e.key === 'Escape') closeLightbox(); }
+</script>
 </body>
 </html>
+                                                                                                                                                               
