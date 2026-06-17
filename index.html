@@ -112,15 +112,15 @@ body {
   z-index: 100;
 }
 .brand { display: flex; align-items: center; gap: 12px; }
-.brand-logo { height: 32px; width: auto; mix-blend-mode: screen; }
+.brand-logo { height: 38px; width: auto; mix-blend-mode: screen; }
 .brand-name {
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   font-weight: 500;
   color: #fff;
   letter-spacing: -0.3px;
 }
 .brand-sub {
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 300;
   color: var(--c-muted);
   letter-spacing: 0.06em;
@@ -157,8 +157,8 @@ body {
 .filter-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 20px;
+  gap: 4px;
+  padding: 8px 16px;
   background: var(--c-surface);
   border-bottom: 1px solid var(--c-border);
   box-shadow: 0 2px 8px rgba(40,33,28,.05);
@@ -181,7 +181,7 @@ body {
 
 /* Search */
 .filter-search {
-  flex: 0 0 170px;
+  flex: 0 0 145px;
   padding: 7px 12px 7px 32px;
   border: 1.5px solid var(--c-border);
   border-radius: var(--radius-sm);
@@ -201,7 +201,7 @@ body {
 /* Estado chips */
 .estado-chips { display: flex; gap: 4px; align-items: center; }
 .echip {
-  padding: 5px 12px;
+  padding: 4px 9px;
   border-radius: 20px;
   border: 1.5px solid var(--c-border);
   font-size: 0.72rem;
@@ -274,14 +274,30 @@ body {
 .fbar-date {
   border: none;
   background: transparent;
-  padding: 6px 8px;
+  padding: 6px 4px;
   font-family: inherit;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--c-ink);
   outline: none;
   cursor: pointer;
-  width: 120px;
+  width: 108px;
 }
+
+/* Date shortcuts */
+.fbar-date-shortcuts {
+  display: flex; align-items: center; gap: 2px;
+  border: 1.5px solid var(--c-border); border-radius: var(--radius-sm);
+  overflow: hidden; flex-shrink: 0;
+}
+.fbar-dshort {
+  padding: 5px 9px; border: none; background: transparent;
+  font-family: inherit; font-size: 0.72rem; font-weight: 500;
+  color: var(--c-muted); cursor: pointer; transition: all .12s;
+  white-space: nowrap;
+}
+.fbar-dshort:not(:last-child) { border-right: 1px solid var(--c-border); }
+.fbar-dshort:hover { background: var(--c-beige); color: var(--c-ink); }
+.fbar-dshort.active { background: var(--c-ink); color: #fff; }
 
 /* Ver solucionados toggle */
 .fbar-toggle {
@@ -316,7 +332,6 @@ body {
 
 /* Count badge */
 .fbar-count {
-  margin-left: auto;
   font-size: 0.72rem;
   font-weight: 600;
   color: var(--c-ink);
@@ -1497,19 +1512,26 @@ body.ampliado .dias-badge { font-size: 0.80rem; padding: 3px 8px; }
       <option value="vencida">vencida</option>
     </select>
     <div class="fbar-sep"></div>
-    <div class="fbar-date-group">
-      <label class="fbar-date-label">desde<input type="date" class="fbar-date" id="f-desde" onchange="renderAll()"></label>
-      <label class="fbar-date-label">hasta<input type="date" class="fbar-date" id="f-hasta" onchange="renderAll()"></label>
+    <div class="fbar-date-shortcuts" id="fbar-date-shortcuts">
+      <button class="fbar-dshort" data-range="hoy"  onclick="setDateRange('hoy',this)">Hoy</button>
+      <button class="fbar-dshort" data-range="7"    onclick="setDateRange('7',this)">7d</button>
+      <button class="fbar-dshort" data-range="30"   onclick="setDateRange('30',this)">30d</button>
+      <button class="fbar-dshort" data-range="90"   onclick="setDateRange('90',this)">90d</button>
+      <button class="fbar-dshort active" data-range="all" onclick="setDateRange('all',this)">Todo</button>
     </div>
-    <button class="fbar-toggle" id="btn-dspr" onclick="toggleDspr(this)">📅 Despacho Prog.</button>
+    <div class="fbar-date-group">
+      <label class="fbar-date-label" style="font-size:0.65rem;padding:0 6px">desde<input type="date" class="fbar-date" id="f-desde" onchange="onCustomDate()"></label>
+      <label class="fbar-date-label" style="font-size:0.65rem;padding:0 6px">hasta<input type="date" class="fbar-date" id="f-hasta" onchange="onCustomDate()"></label>
+    </div>
     <div class="fbar-sep"></div>
-    <button class="fbar-toggle" id="btn-sol" onclick="toggleVerSolucionados(this)">ver solucionados</button>
+    <button class="fbar-toggle" id="btn-dspr" onclick="toggleDspr(this)">📅 Prog.</button>
+    <button class="fbar-toggle" id="btn-sol" onclick="toggleVerSolucionados(this)">Solucionados</button>
     <div class="density-toggle" id="density-toggle">
       <button class="density-btn" data-mode="compact" onclick="setDensity('compact',this)" title="Compacto">⊟</button>
       <button class="density-btn active" data-mode="normal" onclick="setDensity('normal',this)" title="Normal">⊡</button>
       <button class="density-btn" data-mode="ampliado" onclick="setDensity('ampliado',this)" title="Ampliado">⊞</button>
     </div>
-    <button class="fbar-clear" onclick="resetAll()">✕ limpiar</button>
+    <button class="fbar-clear" onclick="resetAll()">✕</button>
     <span class="fbar-count" id="table-count">—</span>
   </div>
 
@@ -1870,7 +1892,7 @@ function applyFilters() {
     const fDesde = document.getElementById('f-desde').value;
     const fHasta = document.getElementById('f-hasta').value;
     if (fDesde || fHasta) {
-      const fc = String(getField(r,'fecha_creacion')||'').slice(0,10);
+      const fc = toISO(String(getField(r,'fecha_creacion')||''));
       if (fDesde && fc < fDesde) return false;
       if (fHasta && fc > fHasta) return false;
     }
@@ -2064,6 +2086,29 @@ async function saveNota(ref, val) {
 // ─────────────────────────────────────────────────────
 const hiddenColGroups = new Set();
 let expandedRows = new Set();
+
+// ─────────────────────────────────────────────────────
+//  CARGAR FOTOS CON RETRY
+// ─────────────────────────────────────────────────────
+async function loadFotos(grid, urls, attempt = 1) {
+  const MAX = 3;
+  try {
+    const res  = await fetch(SCRIPT_URL + '?action=getFotos&urls=' + encodeURIComponent(urls.join(',')));
+    const data = await res.json();
+    if (!data.ok || !data.fotos?.length) throw new Error('sin fotos');
+    grid.innerHTML = data.fotos.map((src, i) =>
+      `<img class="sku-foto-thumb" src="${src}" loading="lazy"
+            onclick="openLightbox(this.src)" title="Ver foto ${i+1}" style="cursor:zoom-in">`
+    ).join('');
+  } catch(e) {
+    if (attempt < MAX) {
+      grid.innerHTML = `<span class="hist-fecha" style="font-style:italic">reintentando (${attempt}/${MAX})…</span>`;
+      setTimeout(() => loadFotos(grid, urls, attempt + 1), 2000 * attempt);
+    } else {
+      grid.innerHTML = '<span class="hist-fecha" style="color:var(--c-danger)">fotos no disponibles</span>';
+    }
+  }
+}
 function toggleColGroup(group, event) {
   event.stopPropagation(); // no disparar sort del th
   const hidden = hiddenColGroups.has(group);
@@ -2175,23 +2220,7 @@ function toggleExpand(ref) {
     // Cargar fotos via proxy si hay URLs
     if (fotoUrls.length) {
       const grid = document.getElementById(`fotos-grid-${ref}`);
-      if (grid) {
-        fetch(SCRIPT_URL + '?action=getFotos&urls=' + encodeURIComponent(fotoUrls.join(',')))
-          .then(r => r.json())
-          .then(data => {
-            if (!data.ok || !data.fotos?.length) {
-              grid.innerHTML = '<span class="hist-fecha" style="font-style:italic;color:var(--c-danger)">fotos no disponibles</span>';
-              return;
-            }
-            grid.innerHTML = data.fotos.map((src, i) =>
-              `<img class="sku-foto-thumb" src="${src}" loading="lazy"
-                    onclick="openLightbox(this.src)" title="Ver foto ${i+1}" style="cursor:zoom-in">`
-            ).join('');
-          })
-          .catch(() => {
-            if (grid) grid.innerHTML = '<span class="hist-fecha" style="color:var(--c-danger)">error cargando fotos</span>';
-          });
-      }
+      if (grid) loadFotos(grid, fotoUrls);
     }
   }
 }
@@ -2247,7 +2276,9 @@ function renderTable(rows) {
     const track   = r.tracking || '—';
     const isDspr  = hasDspr(r);
     const link    = r.link_seguimiento || r.link_se || '';
-    const fecha   = String(getField(r,'fecha_creacion')||'').slice(0,10);
+    const fechaRaw = String(getField(r,'fecha_creacion')||'');
+    const fechaParts = fechaRaw.split(' ');
+    const fechaHTML = esc(fechaParts[0]) + (fechaParts[1] ? `&nbsp;<span style="color:var(--c-muted)">${esc(fechaParts[1].slice(0,5))}</span>` : '');
     const stark   = r.envio_starkoms || '—';
     const blue    = getField(r,'envio_blue') || '—';
     const region  = getField(r,'region_destino','Region_destino') || '—';
@@ -2266,7 +2297,7 @@ function renderTable(rows) {
       <td class="td-ref" style="white-space:nowrap">${esc(ref)}</td>
       <td class="td-mono">${esc(track)}</td>
       <td>${link ? `<a class="track-link" href="${link}" target="_blank" style="font-size:1.1rem;line-height:1">&#128279;</a>` : '<span class="td-muted">—</span>'}</td>
-      <td class="td-muted td-nowrap">${esc(fecha)}</td>
+      <td class="td-muted td-nowrap">${fechaHTML}</td>
       <td>${isDspr && !r.promesa_entrega ? '<span class="p-dspr">📅 Programar envío</span>' : promesaHTML(r)}</td>
       <td class="td-svc">${esc(stark)}</td>
       <td class="td-svc">${esc(blue)}</td>
@@ -2323,6 +2354,30 @@ function toggleEstado(btn) {
 // ─────────────────────────────────────────────────────
 //  RESET
 // ─────────────────────────────────────────────────────
+function setDateRange(range, btn) {
+  const today = new Date();
+  const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const dDesde = document.getElementById('f-desde');
+  const dHasta = document.getElementById('f-hasta');
+  document.querySelectorAll('.fbar-dshort').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (range === 'all') {
+    dDesde.value = ''; dHasta.value = '';
+  } else if (range === 'hoy') {
+    dDesde.value = fmt(today); dHasta.value = fmt(today);
+  } else {
+    const from = new Date(today); from.setDate(from.getDate() - parseInt(range));
+    dDesde.value = fmt(from); dHasta.value = fmt(today);
+  }
+  renderAll();
+}
+
+function onCustomDate() {
+  // Al tocar los inputs manualmente, quitar active de shortcuts
+  document.querySelectorAll('.fbar-dshort').forEach(b => b.classList.remove('active'));
+  renderAll();
+}
+
 function resetAll() {
   showSolucionados = false;
   const btnSol = document.getElementById('btn-sol');
@@ -2338,10 +2393,12 @@ function resetAll() {
   document.getElementById('f-region').value = '';
   document.getElementById('f-promesa').value = '';
   document.getElementById('f-desde').value = '';
+  document.getElementById('f-hasta').value = '';
+  document.querySelectorAll('.fbar-dshort').forEach(b =>
+    b.classList.toggle('active', b.dataset.range === 'all'));
   filterDspr = false;
   const btnDspr = document.getElementById('btn-dspr');
   if (btnDspr) btnDspr.classList.remove('active');
-  document.getElementById('f-hasta').value = '';
   renderAll();
 }
 
@@ -2360,9 +2417,10 @@ function switchTab(name, btn) {
     if (dd && !dd.value) {
       const now  = new Date();
       const ago  = new Date(now); ago.setDate(ago.getDate() - 30);
-      dd.value = now.toISOString().slice(0,10);
+      const fmtD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      dd.value = fmtD(now);
       const ddD = document.getElementById('dash-desde');
-      if (ddD) ddD.value = ago.toISOString().slice(0,10);
+      if (ddD) ddD.value = fmtD(ago);
     }
   }
   if (name === 'mensajes')  buildMessages();
@@ -2512,23 +2570,7 @@ function toggleProbExpand(ref) {
 
     if (fotoUrls2.length) {
       const grid2 = document.getElementById(`fotos-prob-grid-${ref}`);
-      if (grid2) {
-        fetch(SCRIPT_URL + '?action=getFotos&urls=' + encodeURIComponent(fotoUrls2.join(',')))
-          .then(r => r.json())
-          .then(data => {
-            if (!data.ok || !data.fotos?.length) {
-              grid2.innerHTML = '<span class="hist-fecha" style="font-style:italic;color:var(--c-danger)">fotos no disponibles</span>';
-              return;
-            }
-            grid2.innerHTML = data.fotos.map((src, i) =>
-              `<img class="sku-foto-thumb" src="${src}" loading="lazy"
-                    onclick="openLightbox(this.src)" title="Ver foto ${i+1}" style="cursor:zoom-in">`
-            ).join('');
-          })
-          .catch(() => {
-            if (grid2) grid2.innerHTML = '<span class="hist-fecha" style="color:var(--c-danger)">error cargando fotos</span>';
-          });
-      }
+      if (grid2) loadFotos(grid2, fotoUrls2);
     }
   }
 }
@@ -2919,7 +2961,8 @@ function setPeriod(days, btn) {
   document.querySelectorAll('.period-chip').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   const now   = new Date();
-  const hasta = now.toISOString().slice(0,10);
+  const fmtD  = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const hasta = fmtD(now);
   const dDesde = document.getElementById('dash-desde');
   const dHasta = document.getElementById('dash-hasta');
   if (!dHasta || !dDesde) return;
@@ -2927,7 +2970,7 @@ function setPeriod(days, btn) {
   else if (days === 0) { dDesde.value = hasta; dHasta.value = hasta; }
   else {
     const ago = new Date(now); ago.setDate(ago.getDate() - days);
-    dDesde.value = ago.toISOString().slice(0,10);
+    dDesde.value = fmtD(ago);
     dHasta.value = hasta;
   }
   renderDashboard();
