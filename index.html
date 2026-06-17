@@ -616,7 +616,7 @@ tbody tr.sku-expand-row td { border-top: none; padding-top: 0; }
 .expand-btn:hover { color: var(--c-ink); background: var(--c-beige); }
 .expand-btn.open  { color: var(--c-ink); }
 
-/* ── SOLUCIONADO BUTTON ─────────────────────────────── */
+/* ── OCULTAR BUTTON (tabla principal) ───────────────── */
 .sol-btn {
   background: none; border: 1.5px solid var(--c-border);
   border-radius: 50%; width: 22px; height: 22px;
@@ -624,8 +624,8 @@ tbody tr.sku-expand-row td { border-top: none; padding-top: 0; }
   color: var(--c-muted); transition: all .15s;
   display: inline-flex; align-items: center; justify-content: center;
 }
-.sol-btn:hover  { border-color: var(--c-ok); color: var(--c-ok); }
-.sol-btn.sol-on { background: var(--c-ok); border-color: var(--c-ok); color: #fff; }
+.sol-btn:hover  { border-color: var(--c-muted); color: var(--c-ink); }
+.sol-btn.sol-on { background: var(--c-muted); border-color: var(--c-muted); color: #fff; }
 
 /* ── SKU DETAIL ROW ─────────────────────────────────── */
 @keyframes expandSlide {
@@ -1525,7 +1525,7 @@ body.ampliado .dias-badge { font-size: 0.80rem; padding: 3px 8px; }
     </div>
     <div class="fbar-sep"></div>
     <button class="fbar-toggle" id="btn-dspr" onclick="toggleDspr(this)">📅 Prog.</button>
-    <button class="fbar-toggle" id="btn-sol" onclick="toggleVerSolucionados(this)">Solucionados</button>
+    <button class="fbar-toggle" id="btn-sol" onclick="toggleVerSolucionados(this)">Ver ocultos</button>
     <div class="density-toggle" id="density-toggle">
       <button class="density-btn" data-mode="compact" onclick="setDensity('compact',this)" title="Compacto">⊟</button>
       <button class="density-btn active" data-mode="normal" onclick="setDensity('normal',this)" title="Normal">⊡</button>
@@ -1556,7 +1556,7 @@ body.ampliado .dias-badge { font-size: 0.80rem; padding: 3px 8px; }
               <th onclick="sortBy('region_destino',this)">Región <span class="sort-icon">↕</span></th>
               <th onclick="sortBy('comuna_destino',this)">Comuna <span class="sort-icon">↕</span></th>
               <th onclick="sortBy('total_paid',this)">Total <span class="sort-icon">↕</span></th>
-              <th style="text-align:center">&#10003; Sol.</th>
+              <th style="text-align:center" title="Ocultar pedido">👁</th>
               <th onclick="sortBy('estado_blue',this)">Estado <span class="sort-icon">↕</span></th>
               <th>Desc. Estado</th>
               <th>Notas</th>
@@ -1866,7 +1866,7 @@ function applyFilters() {
   const fProm   = document.getElementById('f-promesa').value;
 
   return DATA_RAW.filter(r => {
-    // Ocultar solucionados (Sheet o marcado local) salvo toggle activo
+    // Ocultar: fuente de verdad = columna solucionado del Excel; botón 👁 como override local temporal
     const ref0 = r.referencia || r.id || '';
     if (!showSolucionados && (isSolFromSheet(r) || isSolucionado(ref0))) return false;
 
@@ -2019,7 +2019,7 @@ async function toggleSolucionado(ref) {
     const btn = tr.querySelector('.sol-btn');
     btn.classList.toggle('sol-on', sol);
     btn.innerHTML = sol ? '&#10003;' : '&#9675;';
-    btn.title = sol ? 'Marcar como pendiente' : 'Marcar como solucionado';
+    btn.title = sol ? 'Mostrar' : 'Ocultar';
     const raw = DATA_RAW.find(r => (r.referencia || r.id) === ref);
     if (raw) tr.className = rowClass(raw, sol);
     // Si se marca como solucionado y no se muestran solucionados, desvanece tras 3s
@@ -2305,7 +2305,7 @@ function renderTable(rows) {
       <td>${esc(comuna)}</td>
       <td class="td-num">${total}</td>
       <td style="text-align:center">
-        <button class="sol-btn${sol?' sol-on':''}" onclick="toggleSolucionado('${esc(ref)}')" title="${sol?'Marcar como pendiente':'Marcar como solucionado'}">${sol?'&#10003;':'&#9675;'}</button>
+        <button class="sol-btn${sol?' sol-on':''}" onclick="toggleSolucionado('${esc(ref)}')" title="${sol?'Mostrar':'Ocultar'}">${sol?'&#128065;':'&#9675;'}</button>
       </td>
       <td>${badge(estado)}</td>
       <td class="td-truncate" title="${esc(desc)}">${esc(desc)}</td>
@@ -2646,8 +2646,8 @@ function renderProblemas() {
           ${optsHtml}
         </select>
       </td>
-      <td style="padding:4px 8px;min-width:220px">
-        <textarea class="nota-input" rows="2" placeholder="acción pendiente…" style="min-width:210px;height:38px;border-bottom-color:var(--c-border)"
+      <td style="padding:4px 8px;min-width:320px">
+        <textarea class="nota-input" rows="2" placeholder="acción pendiente…" style="min-width:300px;height:40px;border-bottom-color:var(--c-border)"
           onblur="saveProbField('${esc(ref)}','accion',this.value)"
           onkeydown="if(event.key==='Enter'&&event.ctrlKey){event.preventDefault();this.blur()}"
         >${esc(d.accion||'')}</textarea>
@@ -2777,10 +2777,8 @@ function dashRows() {
 }
 
 function isSolEffective(r) {
+  // Solo cuenta lo marcado explícitamente en la pestaña Problemas
   const ref = r.referencia || r.id || '';
-  const solMap = getSolMap();
-  if (ref in solMap) return solMap[ref];
-  if (isSolFromSheet(r)) return true;
   return !!getProbMap()[ref]?.solucionado;
 }
 
