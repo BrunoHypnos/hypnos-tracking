@@ -1,0 +1,3685 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hypnos · pedidos</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<script>
+// ── Auth ──────────────────────────────────────────────
+(function() {
+  const HASH = '7a3f2b9c1e8d4f6a0b5c2e9f1d7a4b8c3e6f0a9d2b5c8e1f4a7b0d3c6e9f2a5';
+  // Hash SHA-256 de "HypnosOp2026" precalculado
+  const CORRECT = '516f6f96455ba762ac463936e743ec6d4fbed0ac0fe903733873bdc038c05e1a';
+
+  async function sha256(str) {
+    const buf = await crypto.subtle.digest('SHA-256',
+      new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf))
+      .map(b => b.toString(16).padStart(2,'0')).join('');
+  }
+
+  async function checkPass() {
+    const stored = sessionStorage.getItem('hx_auth');
+    if (stored === 'ok') { show(); return; }
+
+    // Mostrar pantalla de login
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app-wrapper').style.display  = 'none';
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const val  = document.getElementById('pass-input').value;
+      const hash = await sha256(val);
+      if (hash === CORRECT) {
+        sessionStorage.setItem('hx_auth', 'ok');
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app-wrapper').style.display  = '';
+        show();
+      } else {
+        const err = document.getElementById('login-error');
+        err.style.display = 'block';
+        document.getElementById('pass-input').value = '';
+        document.getElementById('pass-input').focus();
+        setTimeout(() => err.style.display = 'none', 3000);
+      }
+    });
+  }
+
+  function show() {
+    document.getElementById('app-wrapper').style.display = '';
+    // fetchData puede no estar definida aún (se carga en el segundo script),
+    // así que la invocamos de forma diferida para asegurarnos.
+    setTimeout(() => { if (typeof fetchData === 'function') fetchData(); }, 0);
+  }
+
+  window.addEventListener('DOMContentLoaded', checkPass);
+})();
+
+// Calcular el hash correcto en consola (solo para referencia de desarrollo):
+// crypto.subtle.digest('SHA-256', new TextEncoder().encode('HypnosOp2026'))
+//   .then(b => console.log(Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')))
+</script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+/* ── RESET & TOKENS ─────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --c-bg:       #F5F2EF;
+  --c-surface:  #FFFFFF;
+  --c-ink:      #28211C;
+  --c-muted:    #9C948F;
+  --c-border:   #E0DBD7;
+  --c-beige:    #EAE6E3;
+
+  --c-ok:       #3D6B4F;  --c-ok-bg:    #EBF3EE;
+  --c-camino:   #2E5F8A;  --c-camino-bg:#EBF1F8;
+  --c-prep:     #6B6460;  --c-prep-bg:  #F2EFED;
+  --c-warn:     #8B6914;  --c-warn-bg:  #FBF5E6;
+  --c-danger:   #9B2C2C;  --c-danger-bg:#FDEAEA;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+
+  --shadow-sm: 0 1px 4px rgba(40,33,28,.07);
+  --shadow-md: 0 4px 20px rgba(40,33,28,.10);
+}
+
+html { font-size: 14px; height: 100%; overflow: hidden; }
+body {
+  font-family: 'DM Sans', Arial, sans-serif;
+  background: var(--c-bg);
+  color: var(--c-ink);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── TOPBAR ─────────────────────────────────────────── */
+.topbar {
+  background: var(--c-ink);
+  padding: 0 32px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-logo { height: 38px; width: auto; mix-blend-mode: screen; }
+.brand-name {
+  font-size: 1.35rem;
+  font-weight: 500;
+  color: #fff;
+  letter-spacing: -0.3px;
+}
+.brand-sub {
+  font-size: 0.78rem;
+  font-weight: 300;
+  color: var(--c-muted);
+  letter-spacing: 0.06em;
+}
+.topbar-right { display: flex; align-items: center; gap: 20px; }
+#status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--c-muted); flex-shrink: 0;
+  transition: background .4s;
+}
+#status-dot.ok     { background: #4CAF50; box-shadow: 0 0 6px rgba(76,175,80,.5); }
+#status-dot.error  { background: var(--c-danger); }
+#status-dot.loading { background: var(--c-warn); animation: pulse .8s infinite alternate; }
+@keyframes pulse { to { opacity: .4; } }
+
+#status-text { font-size: 0.75rem; color: var(--c-muted); }
+.btn-refresh {
+  padding: 7px 16px;
+  border: 1.5px solid rgba(255,255,255,.2);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: rgba(255,255,255,.7);
+  font-family: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.btn-refresh:hover { border-color: rgba(255,255,255,.6); color: #fff; }
+
+/* ── LAYOUT ─────────────────────────────────────────── */
+.app { display: flex; flex-direction: column; overflow: hidden; height: calc(100vh - 98px - 38px); }
+
+/* ── FILTER BAR ─────────────────────────────────────── */
+.filter-bar {
+  display: flex;
+  flex-direction: column;
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border);
+  box-shadow: 0 2px 8px rgba(40,33,28,.05);
+  flex-shrink: 0;
+}
+.fbar-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+.fbar-row:not(:last-child) { border-bottom: 1px solid var(--c-border); }
+.fbar-row::-webkit-scrollbar { display: none; }
+.fbar-row > * { flex-shrink: 0; }
+
+/* Separador vertical entre grupos */
+.fbar-sep {
+  width: 1px; height: 22px;
+  background: var(--c-border);
+  flex-shrink: 0;
+  margin: 0 6px;
+}
+
+/* Search */
+.filter-search {
+  flex: 0 0 145px;
+  padding: 7px 12px 7px 32px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.82rem;
+  background: var(--c-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239C948F' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 10px center;
+  color: var(--c-ink);
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.filter-search:focus {
+  border-color: var(--c-ink);
+  box-shadow: 0 0 0 3px rgba(40,33,28,.07);
+}
+.filter-search::placeholder { color: var(--c-muted); }
+
+/* Estado chips */
+.estado-chips { display: flex; gap: 4px; align-items: center; }
+.echip {
+  padding: 4px 9px;
+  border-radius: 20px;
+  border: 1.5px solid var(--c-border);
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .15s;
+  color: var(--c-muted);
+  background: transparent;
+  font-family: inherit;
+  white-space: nowrap;
+  letter-spacing: .01em;
+}
+.echip:hover { border-color: var(--c-ink); color: var(--c-ink); }
+
+.echip[data-est="En Camino"].active        { background: var(--c-camino-bg); border-color: var(--c-camino); color: var(--c-camino); }
+.echip[data-est="En Preparación"].active   { background: var(--c-prep-bg);   border-color: #8B8480;         color: #6B6460; }
+.echip[data-est="Problema"].active         { background: var(--c-warn-bg);   border-color: var(--c-warn);   color: var(--c-warn); }
+.echip[data-est="__vencida__"].active      { background: var(--c-danger-bg); border-color: var(--c-danger); color: var(--c-danger); }
+.echip[data-est="Entregado"].active        { background: var(--c-ok-bg);     border-color: var(--c-ok);     color: var(--c-ok); }
+.echip[data-est="Devuelto"].active         { background: var(--c-prep-bg);   border-color: #8B8480;         color: #6B6460; }
+
+/* Selects */
+.fbar-select {
+  padding: 7px 28px 7px 10px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.78rem;
+  background: var(--c-bg);
+  color: var(--c-ink);
+  outline: none;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239C948F' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+.fbar-select:focus {
+  border-color: var(--c-ink);
+  box-shadow: 0 0 0 3px rgba(40,33,28,.07);
+}
+
+/* Date range */
+.fbar-date-group {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-bg);
+  overflow: hidden;
+  transition: border-color .15s, box-shadow .15s;
+}
+.fbar-date-group:focus-within {
+  border-color: var(--c-ink);
+  box-shadow: 0 0 0 3px rgba(40,33,28,.07);
+}
+.fbar-date-label {
+  display: flex;
+  align-items: center;
+  font-size: 0.7rem;
+  color: var(--c-muted);
+  padding: 0 8px;
+  font-weight: 500;
+  white-space: nowrap;
+  user-select: none;
+}
+.fbar-date-label:first-child { border-right: 1px solid var(--c-border); }
+.fbar-date {
+  border: none;
+  background: transparent;
+  padding: 6px 4px;
+  font-family: inherit;
+  font-size: 0.72rem;
+  color: var(--c-ink);
+  outline: none;
+  cursor: pointer;
+  width: 108px;
+}
+
+/* Date shortcuts */
+.fbar-date-shortcuts {
+  display: flex; align-items: center; gap: 2px;
+  border: 1.5px solid var(--c-border); border-radius: var(--radius-sm);
+  overflow: hidden; flex-shrink: 0;
+}
+.fbar-dshort {
+  padding: 5px 9px; border: none; background: transparent;
+  font-family: inherit; font-size: 0.72rem; font-weight: 500;
+  color: var(--c-muted); cursor: pointer; transition: all .12s;
+  white-space: nowrap;
+}
+.fbar-dshort:not(:last-child) { border-right: 1px solid var(--c-border); }
+.fbar-dshort:hover { background: var(--c-beige); color: var(--c-ink); }
+.fbar-dshort.active { background: var(--c-ink); color: #fff; }
+
+/* SKU multi-select */
+.sku-dd { position: relative; }
+.sku-dd-btn {
+  padding: 7px 28px 7px 10px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.78rem;
+  background: var(--c-bg);
+  color: var(--c-ink);
+  outline: none;
+  cursor: pointer;
+  transition: border-color .15s;
+  white-space: nowrap;
+}
+.sku-dd-btn:focus, .sku-dd-btn.open { border-color: var(--c-ink); }
+.sku-dd-btn.has-selection { background: var(--c-beige); border-color: var(--c-ink); font-weight: 500; }
+.sku-dd-panel {
+  display: none;
+  position: fixed;
+  z-index: 500;
+  background: var(--c-surface);
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  width: 240px;
+  padding: 6px;
+}
+.sku-dd-panel.open { display: flex; flex-direction: column; gap: 4px; }
+.sku-dd-search {
+  padding: 5px 8px;
+  border: 1.5px solid var(--c-border);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  outline: none;
+  width: 100%;
+}
+.sku-dd-list { max-height: 240px; overflow-y: auto; }
+.sku-dd-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  user-select: none;
+}
+.sku-dd-item:hover { background: var(--c-beige); }
+.sku-dd-item input { cursor: pointer; accent-color: var(--c-ink); }
+.sku-dd-clear {
+  font-size: 0.7rem;
+  color: var(--c-danger);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  padding: 2px 6px;
+}
+
+/* Ver solucionados toggle */
+.fbar-toggle {
+  padding: 6px 12px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--c-muted);
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+  letter-spacing: .01em;
+}
+.fbar-toggle:hover { border-color: var(--c-ok); color: var(--c-ok); }
+.fbar-toggle.active { background: var(--c-ok-bg); border-color: var(--c-ok); color: var(--c-ok); font-weight: 500; }
+
+/* Limpiar */
+.fbar-clear {
+  padding: 6px 10px;
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--c-muted);
+  cursor: pointer;
+  transition: all .15s;
+}
+.fbar-clear:hover { border-color: var(--c-danger); color: var(--c-danger); background: var(--c-danger-bg); }
+
+/* Count badge */
+.fbar-count {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--c-ink);
+  background: var(--c-beige);
+  border: 1.5px solid var(--c-border);
+  border-radius: 20px;
+  padding: 3px 10px;
+  white-space: nowrap;
+  letter-spacing: .01em;
+}
+
+/* ── MAIN CONTENT ───────────────────────────────────── */
+.content {
+  flex: 1;
+  min-height: 0;
+  padding: 16px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* ── KPI ROW ────────────────────────────────────────── */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+.kpi-card {
+  background: var(--c-surface);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  border: 1.5px solid transparent;
+  transition: box-shadow .15s, border-color .15s, transform .15s;
+  cursor: default;
+}
+.kpi-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.kpi-card.highlight { border-color: var(--c-ink); }
+.kpi-card .kpi-label {
+  font-size: 0.65rem; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--c-muted); margin-bottom: 8px;
+}
+.kpi-card .kpi-num {
+  font-size: 2rem; font-weight: 600;
+  letter-spacing: -1.5px; line-height: 1;
+}
+.kpi-card .kpi-pct { font-size: 0.72rem; color: var(--c-muted); margin-top: 4px; }
+
+.kpi-card.k-ok       .kpi-num { color: var(--c-ok); }
+.kpi-card.k-camino   .kpi-num { color: var(--c-camino); }
+.kpi-card.k-prep     .kpi-num { color: var(--c-prep); }
+.kpi-card.k-warn     .kpi-num { color: var(--c-warn); }
+.kpi-card.k-danger   .kpi-num { color: var(--c-danger); }
+.kpi-card.k-total    .kpi-num { color: var(--c-ink); }
+
+/* ── ALERT STRIP ────────────────────────────────────── */
+.alert-strip {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 12px;
+}
+.alert-pill {
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.alert-pill.p-danger  { background: var(--c-danger-bg); }
+.alert-pill.p-warn    { background: var(--c-warn-bg); }
+.alert-pill.p-prep    { background: var(--c-prep-bg); }
+.alert-pill .alert-num {
+  font-size: 1.8rem; font-weight: 600;
+  letter-spacing: -1px; line-height: 1; flex-shrink: 0;
+}
+.alert-pill.p-danger .alert-num { color: var(--c-danger); }
+.alert-pill.p-warn   .alert-num { color: var(--c-warn); }
+.alert-pill.p-prep   .alert-num { color: var(--c-prep); }
+.alert-body h4 { font-size: 0.82rem; font-weight: 600; margin-bottom: 2px; }
+.alert-body p  { font-size: 0.75rem; color: var(--c-muted); line-height: 1.4; }
+
+/* ── TABLE AREA ─────────────────────────────────────── */
+.table-area {
+  background: var(--c-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.table-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--c-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.table-header-left { font-size: 0.78rem; color: var(--c-muted); }
+
+.table-scroll {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+/* ── COLUMN TOGGLE (Excel-style header button) ──────── */
+.th-toggle {
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.th-collapse-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px;
+  border: 1.5px solid var(--c-border);
+  border-radius: 3px;
+  background: var(--c-surface);
+  color: var(--c-muted);
+  font-size: 0.6rem;
+  cursor: pointer;
+  line-height: 1;
+  transition: all .15s;
+  font-weight: 700;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.th-collapse-btn:hover { border-color: var(--c-ink); color: var(--c-ink); }
+.col-hidden { display: none !important; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+thead th {
+  background: var(--c-beige);
+  color: var(--c-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 11px 14px;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid var(--c-border);
+  transition: color .12s;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+thead th:hover { color: var(--c-ink); }
+thead th.sorted { color: var(--c-ink); }
+.sort-icon { margin-left: 3px; opacity: .35; font-size: .9em; }
+thead th.sorted .sort-icon { opacity: 1; }
+
+tbody tr {
+  border-bottom: 1px solid var(--c-border);
+  transition: background .1s;
+}
+tbody tr:last-child { border: none; }
+tbody tr:hover { background: #FAFAF8; }
+td { padding: 11px 14px; vertical-align: middle; }
+
+/* Badges */
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 20px;
+  font-size: 0.7rem; font-weight: 600; white-space: nowrap;
+}
+.badge::before { content:''; width:6px; height:6px; border-radius:50%; }
+.b-ok      { background:var(--c-ok-bg);      color:var(--c-ok);     }
+.b-ok::before { background: var(--c-ok); }
+.b-camino  { background:var(--c-camino-bg);  color:var(--c-camino); }
+.b-camino::before { background: var(--c-camino); }
+.b-prep    { background:var(--c-prep-bg);    color:var(--c-prep);   }
+.b-prep::before { background: var(--c-prep); }
+.b-warn    { background:var(--c-warn-bg);    color:var(--c-warn);   }
+.b-warn::before { background: var(--c-warn); }
+.b-danger  { background:var(--c-danger-bg);  color:var(--c-danger); }
+.b-danger::before { background: var(--c-danger); }
+
+/* Promesa */
+.p-ok     { color: var(--c-ok);     font-weight:500; white-space:nowrap; }
+.p-riesgo { color: var(--c-warn);   font-weight:500; white-space:nowrap; }
+.p-late   { color: var(--c-danger); font-weight:600; white-space:nowrap; }
+.p-none   { color: var(--c-muted); }
+.p-dspr   { color: var(--c-camino); font-size: 0.78rem; white-space: nowrap; }
+
+/* Link tracking */
+.track-link {
+  color: var(--c-camino); font-size:0.78rem;
+  text-decoration:none; font-weight:500;
+}
+.track-link:hover { text-decoration:underline; }
+
+.sku-text {
+  max-width: 160px; display:block;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  font-size:0.75rem; color:var(--c-muted);
+}
+
+td.td-ref { font-weight:500; }
+td.td-muted { color: var(--c-muted); font-size:0.78rem; }
+
+/* Empty / loading */
+.placeholder {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--c-muted);
+}
+.placeholder .big { font-size:2rem; margin-bottom:10px; opacity:.3; }
+.placeholder p { font-size:0.85rem; line-height:1.6; }
+
+/* Spinner */
+.spinner {
+  display: inline-block;
+  width: 18px; height: 18px;
+  border: 2px solid var(--c-border);
+  border-top-color: var(--c-ink);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* URL config */
+.config-bar {
+  background: var(--c-warn-bg);
+  border-bottom: 1px solid #e8d48a;
+  padding: 10px 32px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 0.8rem;
+  color: var(--c-warn);
+}
+.config-bar input {
+  flex: 1; padding: 7px 12px;
+  border: 1.5px solid #e8d48a;
+  border-radius: var(--radius-sm);
+  font-family: inherit; font-size: 0.8rem;
+  background: #fff; color: var(--c-ink);
+  outline: none;
+}
+.config-bar input:focus { border-color: var(--c-warn); }
+.btn-save-url {
+  padding: 7px 16px;
+  background: var(--c-warn);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ── ROW COLORS ─────────────────────────────────────── */
+tbody tr.row-ok       { background: #edf7f0; }
+tbody tr.row-camino   { background: #eaf1f8; }
+tbody tr.row-prep     { background: #f5f3f1; }
+tbody tr.row-problema { background: #fef9e6; }
+tbody tr.row-vencida  { background: #fdeaea; }
+tbody tr.row-sol      { background: #e6f4ea; }
+tbody tr.row-prep-late { background: #FBF5E6; }
+tbody tr.sku-expand-row { background: #fafaf9; }
+tbody tr.sku-expand-row td { border-top: none; padding-top: 0; }
+
+/* ── EXPAND BUTTON ──────────────────────────────────── */
+.expand-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--c-muted); font-size: 0.65rem;
+  padding: 2px 4px; border-radius: 4px;
+  transition: color .15s, background .15s;
+  line-height: 1;
+}
+.expand-btn:hover { color: var(--c-ink); background: var(--c-beige); }
+.expand-btn.open  { color: var(--c-ink); }
+
+/* ── OCULTAR BUTTON (tabla principal) ───────────────── */
+.sol-btn {
+  background: none; border: 1.5px solid var(--c-border);
+  border-radius: 50%; width: 22px; height: 22px;
+  cursor: pointer; font-size: 0.75rem; line-height: 1;
+  color: var(--c-muted); transition: all .15s;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.sol-btn:hover  { border-color: var(--c-muted); color: var(--c-ink); }
+.sol-btn.sol-on { background: var(--c-muted); border-color: var(--c-muted); color: #fff; }
+
+/* ── SKU DETAIL ROW ─────────────────────────────────── */
+@keyframes expandSlide {
+  from { opacity: 0; transform: translateY(-5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+tbody tr.sku-expand-row .sku-detail {
+  animation: expandSlide .16s cubic-bezier(.25,.8,.25,1);
+}
+.sku-detail {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px 14px;
+}
+.sku-detail-inner { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.sku-label { font-size: 0.7rem; color: var(--c-muted); font-weight: 500; padding-top: 2px; white-space: nowrap; }
+.sku-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.sku-chip {
+  background: var(--c-beige); color: var(--c-ink);
+  border-radius: 4px; padding: 2px 7px;
+  font-size: 0.72rem; font-weight: 500; font-family: monospace;
+  border: 1px solid var(--c-border);
+}
+/* ── FOTO EVIDENCIA ─────────────────────────────────── */
+.sku-fotos-row { display: flex; align-items: flex-start; gap: 10px; }
+.sku-fotos-grid { display: flex; gap: 6px; flex-wrap: wrap; }
+.sku-foto-thumb {
+  width: 64px; height: 64px; object-fit: cover;
+  border-radius: 6px; border: 1px solid var(--c-border);
+  cursor: pointer; transition: transform .15s, box-shadow .15s;
+  display: block;
+}
+.sku-foto-thumb:hover { transform: scale(1.08); box-shadow: 0 4px 12px rgba(40,33,28,.18); }
+/* ── LIGHTBOX ────────────────────────────────────────── */
+#lightbox {
+  display: none; position: fixed; inset: 0; z-index: 9999;
+  background: rgba(20,16,14,.85); backdrop-filter: blur(4px);
+  align-items: center; justify-content: center;
+  cursor: zoom-out;
+}
+#lightbox.open { display: flex; animation: lbIn .18s ease-out; }
+@keyframes lbIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+#lightbox img {
+  max-width: 92vw; max-height: 92vh;
+  object-fit: contain; border-radius: 8px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.5);
+  cursor: default;
+  animation: lbScale .18s cubic-bezier(.25,.8,.25,1);
+}
+@keyframes lbScale {
+  from { transform: scale(.92); }
+  to   { transform: scale(1); }
+}
+#lightbox-close {
+  position: fixed; top: 18px; right: 22px;
+  color: #fff; font-size: 1.6rem; font-weight: 300;
+  cursor: pointer; line-height: 1; opacity: .8;
+  transition: opacity .15s;
+  background: none; border: none; padding: 4px 8px;
+}
+#lightbox-close:hover { opacity: 1; }
+/* ── HISTORIAL ───────────────────────────────────────── */
+.hist-row { display: flex; align-items: flex-start; gap: 10px; }
+.hist-list { display: flex; flex-direction: column; gap: 4px; }
+.hist-item {
+  display: flex; align-items: baseline; gap: 8px;
+  font-size: 0.82rem; line-height: 1.5;
+}
+.hist-fecha { color: var(--c-muted); white-space: nowrap; font-variant-numeric: tabular-nums; min-width: 80px; }
+.hist-badge {
+  font-size: 0.72rem; font-weight: 600; padding: 1px 7px; border-radius: 4px;
+  white-space: nowrap; flex-shrink: 0;
+}
+.hist-badge.ok      { background: var(--c-ok-bg);    color: var(--c-ok); }
+.hist-badge.camino  { background: var(--c-camino-bg); color: var(--c-camino); }
+.hist-badge.prep    { background: var(--c-prep-bg);   color: var(--c-prep); }
+.hist-badge.warn    { background: var(--c-warn-bg);   color: var(--c-warn); }
+.hist-badge.danger  { background: var(--c-danger-bg); color: var(--c-danger); }
+.hist-desc { color: var(--c-ink); }
+/* ── FOTOS (links) ───────────────────────────────────── */
+.sku-foto-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.sku-foto-link {
+  font-size: 0.78rem; color: var(--c-camino);
+  text-decoration: none; padding: 2px 8px;
+  border: 1px solid var(--c-camino-bg); border-radius: 4px;
+  background: var(--c-camino-bg);
+  transition: opacity .15s;
+}
+.sku-foto-link:hover { opacity: .75; }
+
+
+/* ── NOTES / ACCION INPUT ───────────────────────────────── */
+.nota-input {
+  width: 100%;
+  min-width: 130px;
+  border: none;
+  border-bottom: 1.5px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: var(--c-ink);
+  padding: 3px 2px;
+  resize: none;
+  outline: none;
+  transition: border-color .2s;
+  line-height: 1.4;
+  height: 26px;
+  overflow: hidden;
+  cursor: pointer;
+  display: block;
+}
+.nota-input::placeholder { color: var(--c-border); font-style: italic; }
+.nota-input:hover  { border-bottom-color: var(--c-muted); }
+.nota-input:focus  { border-bottom-color: var(--c-camino); cursor: text; height: auto; min-height: 26px; }
+.nota-saving { display: none; }
+
+/* ── TABLE CELL HELPERS ─────────────────────────────── */
+.td-mono    { font-family: monospace; font-size: 0.78rem; }
+.td-nowrap  { white-space: nowrap; }
+.td-truncate{ max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: help; }
+.td-num     { font-variant-numeric: tabular-nums; font-size: 0.82rem; text-align: right; }
+.td-svc     { font-size: 0.72rem; font-weight: 600; letter-spacing: .02em; }
+
+/* Responsive */
+@media (max-width:900px) { .sidebar { display:none; } }
+
+/* ── LOGIN SCREEN ───────────────────────────────────── */
+#login-screen {
+  display: none;
+  position: fixed; inset: 0;
+  background: var(--c-ink);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0;
+}
+.login-box {
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+}
+.login-brand {
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+}
+.login-brand span {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 300;
+  color: var(--c-muted);
+  letter-spacing: 0.1em;
+  margin-top: 4px;
+  text-align: center;
+}
+.login-form-inner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.login-input {
+  width: 100%;
+  padding: 14px 18px;
+  background: rgba(255,255,255,.07);
+  border: 1.5px solid rgba(255,255,255,.15);
+  border-radius: var(--radius-md);
+  color: #fff;
+  font-family: inherit;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  outline: none;
+  transition: border-color .15s, background .15s;
+  text-align: center;
+}
+.login-input::placeholder { color: rgba(255,255,255,.25); letter-spacing: 0; }
+.login-input:focus {
+  border-color: rgba(255,255,255,.5);
+  background: rgba(255,255,255,.11);
+}
+.login-btn {
+  width: 100%;
+  padding: 14px;
+  background: #fff;
+  color: var(--c-ink);
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: opacity .15s;
+}
+.login-btn:hover { opacity: .88; }
+.login-error {
+  display: none;
+  font-size: 0.78rem;
+  color: #F08080;
+  text-align: center;
+  margin-top: -4px;
+}
+.login-footer {
+  font-size: 0.7rem;
+  color: rgba(255,255,255,.2);
+  text-align: center;
+}
+
+/* ── TABS ───────────────────────────────────────────────── */
+.tab-nav {
+  display: flex;
+  gap: 2px;
+  background: var(--c-ink);
+  padding: 0 24px;
+  flex-shrink: 0;
+}
+.tab-btn {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,.45);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
+.tab-btn:hover  { color: rgba(255,255,255,.8); }
+.tab-btn.active { color: #fff; border-bottom-color: #fff; }
+.tab-panel { display: none; flex: 1; min-height: 0; flex-direction: column; overflow: hidden; }
+.tab-panel.active { display: flex; }
+
+/* ── PROBLEMAS TAB ───────────────────────────────────────── */
+.prob-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border);
+  flex-shrink: 0;
+}
+.prob-search {
+  flex: 0 0 200px;
+  padding: 7px 12px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.82rem;
+  background: var(--c-bg);
+  color: var(--c-ink);
+  outline: none;
+}
+.prob-search:focus { border-color: var(--c-ink); }
+.prob-count { font-size: 0.75rem; color: var(--c-muted); margin-left: auto; }
+
+.prob-scroll { flex: 1; overflow: auto; min-height: 0; background: var(--c-surface); }
+.prob-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.prob-table thead th {
+  background: var(--c-beige);
+  color: var(--c-muted);
+  font-size: 0.67rem;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  padding: 10px 12px;
+  text-align: left;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  border-bottom: 1px solid var(--c-border);
+}
+.prob-table tbody tr { border-bottom: 1px solid var(--c-border); }
+.prob-table tbody tr:hover { background: #FAFAF8; }
+.prob-table td { padding: 8px 12px; vertical-align: middle; }
+
+.prob-select {
+  padding: 5px 24px 5px 8px;
+  border: 1.5px solid var(--c-border);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  background: var(--c-bg);
+  color: var(--c-ink);
+  outline: none;
+  cursor: pointer;
+  min-width: 160px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%239C948F' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+}
+.prob-select:focus { border-color: var(--c-ink); }
+.prob-select.tiene-valor { border-color: var(--c-warn); color: var(--c-warn); font-weight:500; }
+
+.prob-input {
+  width: 100%;
+  min-width: 120px;
+  padding: 5px 8px;
+  border: 1.5px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: var(--c-ink);
+  outline: none;
+  transition: border-color .15s, background .15s;
+}
+.prob-input:hover { border-color: var(--c-border); background: var(--c-bg); }
+.prob-input:focus { border-color: var(--c-camino); background: var(--c-surface); }
+
+.prob-sol-btn {
+  width: 22px; height: 22px;
+  border: 1.5px solid var(--c-border);
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: all .15s;
+  color: var(--c-muted);
+}
+.prob-sol-btn:hover  { border-color: var(--c-ok); color: var(--c-ok); }
+.prob-sol-btn.on { background: var(--c-ok); border-color: var(--c-ok); color: #fff; }
+
+/* ── MENSAJES TAB ─────────────────────────────────────────── */
+.msg-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px 28px;
+  overflow: auto;
+  background: var(--c-bg);
+}
+.msg-card {
+  background: var(--c-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.msg-card-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+.msg-textarea {
+  width: 100%;
+  min-height: 160px;
+  padding: 14px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', monospace;
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--c-ink);
+  background: var(--c-bg);
+  outline: none;
+  resize: vertical;
+}
+.msg-actions { display: flex; gap: 8px; align-items: center; }
+.btn-copy {
+  padding: 8px 18px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--c-ink);
+  background: var(--c-ink);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.btn-copy:hover { opacity: .85; }
+.btn-copy.copied { background: var(--c-ok); border-color: var(--c-ok); }
+.btn-regen {
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--c-border);
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: var(--c-muted);
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn-regen:hover { border-color: var(--c-ink); color: var(--c-ink); }
+.msg-note { font-size: 0.72rem; color: var(--c-muted); margin-left: auto; }
+
+
+/* ── BUTTON ANIMATIONS ──────────────────────────────────── */
+button { -webkit-tap-highlight-color: transparent; }
+
+.btn-refresh:active,
+.btn-copy:active,
+.btn-regen:active,
+.fbar-clear:active,
+.fbar-toggle:active,
+.tab-btn:active {
+  transform: scale(.95);
+}
+
+.sol-btn, .prob-sol-btn {
+  transition: all .15s cubic-bezier(.34,1.56,.64,1);
+}
+.prob-send-btn {
+  background: none; border: 1.5px solid var(--c-border); cursor: pointer;
+  font-size: 1rem; padding: 4px 8px; border-radius: var(--radius-sm);
+  color: var(--c-muted); transition: all .15s; line-height: 1;
+}
+.prob-send-btn:hover { background: #FEF3C7; border-color: var(--c-warn); color: var(--c-warn); }
+.prob-send-btn.prob-send-on {
+  background: #FEF3C7; border-color: var(--c-warn);
+  color: var(--c-warn); font-weight: 700; cursor: pointer;
+}
+.prob-send-btn.prob-send-on:hover { background: #FDE68A; }
+.sol-btn:active, .prob-sol-btn:active {
+  transform: scale(.82);
+}
+.sol-btn.sol-on, .prob-sol-btn.on {
+  animation: solPop .25s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes solPop {
+  0%   { transform: scale(.7); }
+  100% { transform: scale(1); }
+}
+
+.expand-btn {
+  transition: color .15s, background .15s, transform .15s;
+}
+.expand-btn:active { transform: scale(.8); }
+.expand-btn.open   { transform: rotate(0deg); }
+
+.echip {
+  transition: all .15s cubic-bezier(.34,1.56,.64,1);
+}
+.echip:active { transform: scale(.92); }
+
+/* Ripple en botones de copia */
+.btn-copy {
+  position: relative;
+  overflow: hidden;
+  transition: opacity .15s, transform .1s, background .2s, border-color .2s;
+}
+.btn-copy::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,.25);
+  opacity: 0;
+  border-radius: inherit;
+  transition: opacity .3s;
+}
+.btn-copy:active::after { opacity: 1; transition: none; }
+
+/* Quitar row: hover rojo */
+tr td button[title="Quitar"] {
+  transition: color .15s, transform .15s;
+}
+tr td button[title="Quitar"]:hover { color: var(--c-danger) !important; }
+tr td button[title="Quitar"]:active { transform: scale(.8); }
+
+
+/* ── PROB SUB-TABS ──────────────────────────────────────── */
+.prob-subtab-nav {
+  display: flex;
+  gap: 0;
+  background: var(--c-beige);
+  border-bottom: 1px solid var(--c-border);
+  padding: 0 20px;
+  flex-shrink: 0;
+}
+.prob-subtab {
+  padding: 9px 18px;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--c-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+  margin-bottom: -1px;
+}
+.prob-subtab:hover { color: var(--c-ink); }
+.prob-subtab.active { color: var(--c-ink); border-bottom-color: var(--c-ink); }
+.prob-subpanel { display: none; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; }
+.prob-subpanel.active { display: flex; }
+
+/* ── DASHBOARD ──────────────────────────────────────────── */
+.dash-wrap {
+  flex: 1;
+  overflow: auto;
+  padding: 20px 24px 32px;
+  background: var(--c-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.dash-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--c-surface);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  box-shadow: var(--shadow-sm);
+  flex-wrap: wrap;
+}
+.dash-filter label {
+  font-size: 0.75rem;
+  color: var(--c-muted);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dash-date {
+  padding: 6px 10px;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: var(--c-ink);
+  background: var(--c-bg);
+  outline: none;
+  cursor: pointer;
+}
+.dash-date:focus { border-color: var(--c-ink); }
+.btn-dash-apply {
+  padding: 7px 16px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--c-ink);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity .15s, transform .1s;
+}
+.btn-dash-apply:hover { opacity: .85; }
+.btn-dash-apply:active { transform: scale(.95); }
+.dash-period-note { font-size: 0.72rem; color: var(--c-muted); margin-left: auto; }
+
+/* KPI cards */
+.dash-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+.dash-kpi {
+  background: var(--c-surface);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  border-left: 3px solid transparent;
+}
+.dash-kpi.k-total  { border-color: var(--c-ink); }
+.dash-kpi.k-pend   { border-color: var(--c-danger); }
+.dash-kpi.k-sol    { border-color: var(--c-ok); }
+.dash-kpi.k-rate   { border-color: var(--c-camino); }
+.dash-kpi-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+  margin-bottom: 8px;
+}
+.dash-kpi-num {
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: -1.5px;
+  line-height: 1;
+  color: var(--c-ink);
+}
+.dash-kpi.k-pend .dash-kpi-num { color: var(--c-danger); }
+.dash-kpi.k-sol  .dash-kpi-num { color: var(--c-ok); }
+.dash-kpi.k-rate .dash-kpi-num { color: var(--c-camino); }
+.dash-kpi-sub {
+  font-size: 0.7rem;
+  color: var(--c-muted);
+  margin-top: 4px;
+}
+
+/* Chart cards */
+.dash-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.dash-chart-card {
+  background: var(--c-surface);
+  border-radius: var(--radius-md);
+  padding: 20px 22px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.dash-chart-card.full { grid-column: 1 / -1; }
+.dash-chart-title {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--c-muted);
+}
+.dash-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.76rem;
+}
+.dash-bar-label {
+  width: 160px;
+  flex-shrink: 0;
+  color: var(--c-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.74rem;
+}
+.dash-bar-track {
+  flex: 1;
+  background: var(--c-beige);
+  border-radius: 4px;
+  height: 10px;
+  overflow: hidden;
+}
+.dash-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width .4s cubic-bezier(.4,0,.2,1);
+  background: var(--c-camino);
+}
+.dash-bar-fill.danger { background: var(--c-danger); }
+.dash-bar-fill.warn   { background: var(--c-warn); }
+.dash-bar-fill.ok     { background: var(--c-ok); }
+.dash-bar-fill.prep   { background: var(--c-prep); }
+.dash-bar-count {
+  width: 28px;
+  text-align: right;
+  font-weight: 600;
+  font-size: 0.78rem;
+  color: var(--c-ink);
+  flex-shrink: 0;
+}
+
+/* Timeline */
+.dash-timeline {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 80px;
+  padding-top: 8px;
+}
+.dash-tl-bar-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  height: 100%;
+  justify-content: flex-end;
+}
+.dash-tl-bar {
+  width: 100%;
+  background: var(--c-camino-bg);
+  border: 1.5px solid var(--c-camino);
+  border-radius: 3px 3px 0 0;
+  transition: height .3s;
+  min-height: 2px;
+  cursor: default;
+  position: relative;
+}
+.dash-tl-bar:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--c-ink);
+  color: #fff;
+  font-size: .65rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+}
+.dash-tl-label {
+  font-size: .58rem;
+  color: var(--c-muted);
+  transform: rotate(-45deg);
+  transform-origin: center;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+.dash-empty { text-align:center; color: var(--c-muted); font-size:.82rem; padding: 20px 0; }
+
+
+/* ── DÍAS SIN RESOLVER ──────────────────────────────── */
+.dias-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.dias-ok     { background: var(--c-ok-bg);     color: var(--c-ok); }
+.dias-warn   { background: var(--c-warn-bg);   color: var(--c-warn); }
+.dias-danger { background: var(--c-danger-bg); color: var(--c-danger); }
+
+/* ── PRIORIDAD ──────────────────────────────────────── */
+.prio-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 0.9rem; padding: 2px 4px;
+  opacity: .25; transition: opacity .15s, transform .15s;
+  line-height: 1;
+}
+.prio-btn:hover  { opacity: .6; }
+.prio-btn:active { transform: scale(.8); }
+.prio-btn.on     { opacity: 1; }
+
+/* ── MODO COMPACTO ──────────────────────────────────── */
+.density-toggle {
+  display: flex;
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.density-btn {
+  padding: 5px 9px;
+  border: none;
+  background: transparent;
+  font-size: 0.85rem;
+  color: var(--c-muted);
+  cursor: pointer;
+  transition: all .15s;
+  font-family: inherit;
+  line-height: 1;
+}
+.density-btn:hover { background: var(--c-beige); color: var(--c-ink); }
+.density-btn.active { background: var(--c-ink); color: #fff; }
+
+/* ── COMPACT mode (excel-like) ── */
+body.compact table td,
+body.compact .prob-table td { padding: 2px 7px !important; font-size: 0.70rem !important; line-height: 1.2; }
+body.compact table thead th,
+body.compact .prob-table thead th { padding: 4px 7px !important; font-size: 0.60rem !important; }
+body.compact .badge { padding: 1px 5px; font-size: 0.60rem; }
+body.compact .expand-btn, body.compact .sol-btn, body.compact .prob-sol-btn { width: 16px; height: 16px; font-size: 0.60rem; }
+body.compact .dias-badge { font-size: 0.60rem; padding: 1px 4px; }
+body.compact .prio-btn { font-size: 0.65rem; }
+body.compact .p-late, body.compact .p-riesgo, body.compact .p-ok { font-size: 0.70rem; }
+
+/* ── AMPLIADO mode (for accessibility) ── */
+body.ampliado table td,
+body.ampliado .prob-table td { padding: 14px 16px !important; font-size: 0.96rem !important; }
+body.ampliado table thead th,
+body.ampliado .prob-table thead th { padding: 14px 16px !important; font-size: 0.78rem !important; }
+body.ampliado .badge { padding: 5px 12px; font-size: 0.80rem; }
+body.ampliado .dias-badge { font-size: 0.80rem; padding: 3px 8px; }
+
+/* ── COUNTDOWN ──────────────────────────────────────── */
+#refresh-countdown {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,.35);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
+}
+
+/* ── QUICK PERIOD CHIPS ─────────────────────────────── */
+.dash-period-chips { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.period-chip {
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1.5px solid var(--c-border);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--c-muted);
+  background: transparent;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.period-chip:hover  { border-color: var(--c-ink); color: var(--c-ink); }
+.period-chip.active { background: var(--c-ink); border-color: var(--c-ink); color: #fff; }
+
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-brand">
+      hypnos
+      <span>operaciones · acceso restringido</span>
+    </div>
+    <form class="login-form-inner" id="login-form" autocomplete="off">
+      <input
+        class="login-input"
+        id="pass-input"
+        type="password"
+        placeholder="contraseña"
+        autocomplete="current-password"
+        autofocus
+      >
+      <div class="login-error" id="login-error">contraseña incorrecta</div>
+      <button class="login-btn" type="submit">entrar</button>
+    </form>
+    <div class="login-footer">hypnos · uso interno</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-wrapper" style="display:none">
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="brand">
+    <img src="logo.png" class="brand-logo" alt="hypnos">
+    <span class="brand-sub">operaciones · pedidos</span>
+  </div>
+  <div class="topbar-right">
+    <span id="status-dot"></span>
+    <span id="status-text">sin datos</span>
+    <span id="refresh-countdown"></span>
+    <button class="btn-refresh" onclick="fetchData()">↻ actualizar</button>
+  </div>
+</header>
+
+<!-- TAB NAV -->
+<nav class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('tracking', this)">Tracking</button>
+  <button class="tab-btn" onclick="switchTab('problemas', this)">⚠ Problemas</button>
+  <button class="tab-btn" onclick="switchTab('mensajes', this)">Mensajes</button>
+</nav>
+
+<!-- APP LAYOUT -->
+<div class="app">
+
+<!-- ══ TAB: TRACKING ════════════════════════════════════════ -->
+<div id="tab-tracking" class="tab-panel active">
+<div style="display:flex;flex-direction:column;flex:1;min-height:0;">
+
+  <!-- FILTER BAR -->
+  <div class="filter-bar">
+    <!-- FILA 1: Buscar + Estado chips + Density + Limpiar -->
+    <div class="fbar-row">
+      <input type="text" id="search" placeholder="buscar…" oninput="renderAll()" class="filter-search">
+      <div class="fbar-sep"></div>
+      <div class="estado-chips" id="estado-chips">
+        <button class="echip active" data-est="En Camino"     onclick="toggleEstado(this)">En Camino</button>
+        <button class="echip active" data-est="En Preparación" onclick="toggleEstado(this)">Preparación</button>
+        <button class="echip active" data-est="Problema"      onclick="toggleEstado(this)">Problema</button>
+        <button class="echip active" data-est="__vencida__"   onclick="toggleEstado(this)">Vencida</button>
+        <button class="echip"        data-est="Entregado"     onclick="toggleEstado(this)">Entregado</button>
+        <button class="echip"        data-est="Devuelto"      onclick="toggleEstado(this)">Devuelto</button>
+      </div>
+      <div class="fbar-sep"></div>
+      <div class="density-toggle" id="density-toggle">
+        <button class="density-btn" data-mode="compact" onclick="setDensity('compact',this)" title="Compacto">⊟</button>
+        <button class="density-btn active" data-mode="normal" onclick="setDensity('normal',this)" title="Normal">⊡</button>
+        <button class="density-btn" data-mode="ampliado" onclick="setDensity('ampliado',this)" title="Ampliado">⊞</button>
+      </div>
+      <button class="fbar-clear" onclick="resetAll()">✕</button>
+      <span class="fbar-count" id="table-count">—</span>
+    </div>
+    <!-- FILA 2: Filtros + Fechas + Toggles -->
+    <div class="fbar-row">
+      <select class="fbar-select" id="f-svc" onchange="renderAll()">
+        <option value="">Servicio</option>
+        <option value="SAMEDAY">SameDay</option>
+        <option value="PRIORITY">Priority</option>
+        <option value="EXPRESS">Express</option>
+      </select>
+      <select class="fbar-select" id="f-region" onchange="renderAll()">
+        <option value="">Región</option>
+      </select>
+      <select class="fbar-select" id="f-cat" onchange="onCatChange()"><option value="">Categoría</option></select>
+      <div class="sku-dd" id="sku-dd">
+        <button class="sku-dd-btn" id="sku-dd-btn" onclick="toggleSkuDd(event)" type="button">SKU</button>
+        <div class="sku-dd-panel" id="sku-dd-panel" onclick="event.stopPropagation()">
+          <input type="text" class="sku-dd-search" id="sku-dd-search" placeholder="buscar SKU…" oninput="filterSkuOptions(this.value)">
+          <div class="sku-dd-list" id="sku-dd-list"></div>
+          <button class="sku-dd-clear" onclick="clearSkuFilter()">✕ Limpiar selección</button>
+        </div>
+      </div>
+      <select class="fbar-select" id="f-promesa" onchange="renderAll()">
+        <option value="">Promesa</option>
+        <option value="ok">a tiempo</option>
+        <option value="riesgo">vence hoy</option>
+        <option value="vencida">vencida</option>
+      </select>
+      <div class="fbar-sep"></div>
+      <div class="fbar-date-shortcuts" id="fbar-date-shortcuts">
+        <button class="fbar-dshort" data-range="hoy"  onclick="setDateRange('hoy',this)">Hoy</button>
+        <button class="fbar-dshort" data-range="7"    onclick="setDateRange('7',this)">7d</button>
+        <button class="fbar-dshort" data-range="30"   onclick="setDateRange('30',this)">30d</button>
+        <button class="fbar-dshort" data-range="90"   onclick="setDateRange('90',this)">90d</button>
+        <button class="fbar-dshort active" data-range="all" onclick="setDateRange('all',this)">Todo</button>
+      </div>
+      <div class="fbar-date-group">
+        <label class="fbar-date-label" style="font-size:0.65rem;padding:0 6px">desde<input type="date" class="fbar-date" id="f-desde" onchange="onCustomDate()"></label>
+        <label class="fbar-date-label" style="font-size:0.65rem;padding:0 6px">hasta<input type="date" class="fbar-date" id="f-hasta" onchange="onCustomDate()"></label>
+      </div>
+      <div class="fbar-sep"></div>
+      <button class="fbar-toggle" id="btn-dspr" onclick="toggleDspr(this)">📅 Prog.</button>
+      <button class="fbar-toggle" id="btn-sol" onclick="toggleVerSolucionados(this)">Ver ocultos</button>
+      <div class="fbar-sep"></div>
+      <button class="fbar-toggle" id="btn-blackcyber" onclick="toggleBlackCyber(this)" title="Modo Black/Cyber: suma días extra a promesa">🛍️ B/C</button>
+      <input type="number" id="input-bc-dias" min="1" max="30" value="3" style="width:42px;padding:5px 4px;border:1.5px solid var(--c-border);border-radius:var(--radius-sm);font-family:inherit;font-size:0.75rem;background:var(--c-bg);color:var(--c-ink);outline:none;display:none" onchange="blackCyberDias=parseInt(this.value)||3;renderAll()" title="Días extra">
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <main class="content">
+
+    <!-- TABLA -->
+    <div class="table-area">
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:28px"></th>
+              <th onclick="sortBy('referencia',this)">Referencia <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('tracking',this)">Tracking <span class="sort-icon">↕</span></th>
+              <th>Link</th>
+              <th onclick="sortBy('fecha_creacion',this)">Fecha <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('promesa_entrega',this)">Promesa <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('envio_starkoms',this)">Starkoms <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('envio_blue',this)">Blue <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('region_destino',this)">Región <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('comuna_destino',this)">Comuna <span class="sort-icon">↕</span></th>
+              <th onclick="sortBy('total_paid',this)">Total <span class="sort-icon">↕</span></th>
+              <th style="text-align:center" title="Ocultar pedido">👁</th>
+              <th onclick="sortBy('estado_blue',this)">Estado <span class="sort-icon">↕</span></th>
+              <th>Desc. Estado</th>
+              <th>Notas</th>
+              <th style="width:28px"></th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="16">
+              <div class="placeholder">
+                <div class="big">◌</div>
+                <p>Cargando datos…</p>
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div><!-- /tracking inner -->
+</div><!-- /tab-tracking -->
+
+<!-- ══ TAB: PROBLEMAS ════════════════════════════════════════ -->
+<div id="tab-problemas" class="tab-panel">
+
+  <!-- Sub-tabs -->
+  <div class="prob-subtab-nav">
+    <button class="prob-subtab active" onclick="switchProbTab('lista',this)">Lista</button>
+    <button class="prob-subtab" onclick="switchProbTab('dashboard',this)">Dashboard</button>
+  </div>
+
+  <!-- LISTA -->
+  <div id="prob-lista" class="prob-subpanel active">
+  <div class="prob-toolbar">
+    <input type="text" id="prob-add-input" class="prob-search" placeholder="N° de orden o tracking…"
+      onkeydown="if(event.key==='Enter')addProbRow()">
+    <button class="btn-copy" style="padding:7px 16px;font-size:.78rem" onclick="addProbRow()">+ Agregar</button>
+    <div class="fbar-sep" style="height:22px"></div>
+    <select id="prob-f-cat" class="fbar-select" onchange="onProbCatChange()" style="font-size:.75rem;max-width:120px">
+      <option value="">Categoría</option>
+    </select>
+    <div class="sku-dd" id="prob-sku-dd">
+      <button class="sku-dd-btn" id="prob-sku-dd-btn" onclick="toggleProbSkuDd(event)" style="font-size:.75rem">SKU</button>
+      <div class="sku-dd-panel" id="prob-sku-dd-panel" onclick="event.stopPropagation()">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px 6px">
+          <span style="font-size:.72rem;font-weight:600;color:var(--c-muted)">FILTRAR SKU</span>
+          <button onclick="clearProbSkuFilter()" style="background:none;border:none;cursor:pointer;font-size:.7rem;color:var(--c-muted)">✕ limpiar</button>
+        </div>
+        <div id="prob-sku-list"></div>
+      </div>
+    </div>
+    <div class="fbar-sep" style="height:22px"></div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--c-muted)">
+      <input type="checkbox" id="prob-show-sol" onchange="renderProblemas()">
+      ver solucionados
+    </label>
+    <span class="prob-count" id="prob-count">—</span>
+  </div>
+  <div class="prob-scroll">
+    <table class="prob-table">
+      <thead>
+        <tr>
+          <th style="width:28px"></th>
+          <th>Referencia</th>
+          <th>Tracking</th>
+          <th>Link</th>
+          <th>Días</th>
+          <th>Fecha</th>
+          <th>Promesa</th>
+          <th>Blue</th>
+          <th>Región</th>
+          <th>Comuna</th>
+          <th>Total</th>
+          <th style="text-align:center">✓ Sol.</th>
+          <th>Estado</th>
+          <th>Desc. Estado</th>
+          <th>Problema</th>
+          <th style="min-width:220px">Acción Pendiente</th>
+          <th>Teléfono</th>
+          <th style="width:28px"></th>
+        </tr>
+      </thead>
+      <tbody id="prob-tbody">
+        <tr><td colspan="15" class="placeholder"><p>Cargando…</p></td></tr>
+      </tbody>
+    </table>
+  </div>
+  </div><!-- /prob-lista -->
+
+  <!-- DASHBOARD -->
+  <div id="prob-dashboard" class="prob-subpanel">
+    <div class="dash-wrap">
+
+      <!-- Filtro fecha -->
+      <div class="dash-filter">
+        <div class="dash-period-chips">
+          <button class="period-chip" onclick="setPeriod(0,this)">Hoy</button>
+          <button class="period-chip" onclick="setPeriod(7,this)">7 días</button>
+          <button class="period-chip active" onclick="setPeriod(30,this)">30 días</button>
+          <button class="period-chip" onclick="setPeriod(90,this)">3 meses</button>
+          <button class="period-chip" onclick="setPeriod(-1,this)">Todo</button>
+        </div>
+        <div class="fbar-sep" style="height:22px"></div>
+        <label>Desde <input type="date" class="dash-date" id="dash-desde"></label>
+        <label>Hasta <input type="date" class="dash-date" id="dash-hasta"></label>
+        <button class="btn-dash-apply" onclick="renderDashboard()">Aplicar</button>
+        <span class="dash-period-note" id="dash-period-note">—</span>
+      </div>
+
+      <!-- KPIs -->
+      <div class="dash-kpi-row">
+        <div class="dash-kpi k-total">
+          <div class="dash-kpi-label">Total problemas</div>
+          <div class="dash-kpi-num" id="dk-total">—</div>
+          <div class="dash-kpi-sub" id="dk-total-sub"></div>
+        </div>
+        <div class="dash-kpi k-pend">
+          <div class="dash-kpi-label">Pendientes</div>
+          <div class="dash-kpi-num" id="dk-pend">—</div>
+          <div class="dash-kpi-sub" id="dk-pend-sub"></div>
+        </div>
+        <div class="dash-kpi k-sol">
+          <div class="dash-kpi-label">Solucionados</div>
+          <div class="dash-kpi-num" id="dk-sol">—</div>
+          <div class="dash-kpi-sub" id="dk-sol-sub"></div>
+        </div>
+        <div class="dash-kpi k-rate">
+          <div class="dash-kpi-label">Tasa resolución</div>
+          <div class="dash-kpi-num" id="dk-rate">—</div>
+          <div class="dash-kpi-sub">del total en período</div>
+        </div>
+      </div>
+
+      <!-- Charts grid -->
+      <div class="dash-charts">
+        <div class="dash-chart-card">
+          <div class="dash-chart-title">Por tipo de problema</div>
+          <div id="dk-chart-tipo"><div class="dash-empty">Sin datos</div></div>
+        </div>
+        <div class="dash-chart-card">
+          <div class="dash-chart-title">Por estado Blue</div>
+          <div id="dk-chart-estado"><div class="dash-empty">Sin datos</div></div>
+        </div>
+        <div class="dash-chart-card">
+          <div class="dash-chart-title">Por región</div>
+          <div id="dk-chart-region"><div class="dash-empty">Sin datos</div></div>
+        </div>
+        <div class="dash-chart-card">
+          <div class="dash-chart-title">Por servicio</div>
+          <div id="dk-chart-svc"><div class="dash-empty">Sin datos</div></div>
+        </div>
+        <div class="dash-chart-card full">
+          <div class="dash-chart-title">Problemas por día</div>
+          <div id="dk-timeline" style="display:flex;align-items:flex-end;gap:3px;height:90px;padding-top:8px"></div>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /prob-dashboard -->
+
+</div><!-- /tab-problemas -->
+
+<!-- ══ TAB: MENSAJES ═════════════════════════════════════════ -->
+<div id="tab-mensajes" class="tab-panel">
+  <div class="msg-panel">
+    <div class="msg-card">
+      <div class="msg-card-title">Mensaje — Problemas &amp; Retrasos</div>
+      <textarea class="msg-textarea" id="msg-blue" readonly></textarea>
+      <div class="msg-actions">
+        <button class="btn-copy" onclick="copyMsg('msg-blue', this)">Copiar</button>
+        <button class="btn-regen" onclick="buildMessages()">↻ Regenerar</button>
+        <span class="msg-note" id="msg-blue-count">—</span>
+      </div>
+    </div>
+    <div class="msg-card">
+      <div class="msg-card-title">Preparación atrasada</div>
+      <textarea class="msg-textarea" id="msg-prep-text" readonly></textarea>
+      <div class="msg-actions">
+        <button class="btn-copy" onclick="copyMsg('msg-prep-text', this)">Copiar</button>
+        <button class="btn-regen" onclick="buildMessages()">↻ Regenerar</button>
+        <span class="msg-note" id="msg-prep-count">—</span>
+      </div>
+    </div>
+  </div>
+</div><!-- /tab-mensajes -->
+
+</div><!-- /app -->
+
+<script>
+// ─────────────────────────────────────────────────────
+//  CONFIGURACIÓN — CAMBIA ESTA URL POR LA DE TU SCRIPT
+// ─────────────────────────────────────────────────────
+const LS_KEY = 'hypnos_script_url';
+let SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwf25-odswW-vHUzD1ZyVZGWeXxusmE8fCiWo-iFfhfTY6TymYIR00XOTOZa_usPVaHpw/exec';
+
+// ─────────────────────────────────────────────────────
+//  ESTADO GLOBAL
+// ─────────────────────────────────────────────────────
+let DATA_RAW = [];      // todos los pedidos
+let sortCol  = 'fecha_creacion';
+let sortAsc  = true;
+let hiddenCols = new Set();
+const activeEstados = new Set(['En Camino','En Preparación','Problema','__vencida__']);
+let showSolucionados = false;
+let filterDspr = false;
+let slaPrepHoras = 24;
+let blackCyberActive = false;
+let blackCyberDias = 3;
+let probFilterCat = '';
+const probSelectedSkus = new Set();
+
+// ─────────────────────────────────────────────────────
+//  MAESTRA DE PRODUCTOS
+// ─────────────────────────────────────────────────────
+const MAESTRA = {"lookup":{"ESCLPM":{"c":"Cama","s":"Cama Essence"},"ESCLQU":{"c":"Cama","s":"Cama Essence"},"ESCLKI":{"c":"Cama","s":"Cama Essence"},"ESCLSK":{"c":"Cama","s":"Cama Essence"},"ENCLPM":{"c":"Cama","s":"Cama Endless"},"ENCLQU":{"c":"Cama","s":"Cama Endless"},"ENCLKI":{"c":"Cama","s":"Cama Endless"},"ENCLSK":{"c":"Cama","s":"Cama Endless"},"CESPM":{"c":"Colchón","s":"Colchón Essence"},"CESQU":{"c":"Colchón","s":"Colchón Essence"},"CESKI":{"c":"Colchón","s":"Colchón Essence"},"CESSK":{"c":"Colchón","s":"Colchón Essence"},"CENPM":{"c":"Colchón","s":"Colchón Endless"},"CENQU":{"c":"Colchón","s":"Colchón Endless"},"CENKI":{"c":"Colchón","s":"Colchón Endless"},"CENSK":{"c":"Colchón","s":"Colchón Endless"},"BCLPM":{"c":"Colchón","s":"Base Colchón"},"BCLQU":{"c":"Colchón","s":"Base Colchón"},"BCLKI":{"c":"Colchón","s":"Base Colchón"},"BCLSK":{"c":"Colchón","s":"Base Colchón"},"TOUP10":{"c":"Ropa de Cama","s":"Complementos"},"TOPM10":{"c":"Ropa de Cama","s":"Complementos"},"TOQU10":{"c":"Ropa de Cama","s":"Complementos"},"TOKI10":{"c":"Ropa de Cama","s":"Complementos"},"TOSP10":{"c":"Ropa de Cama","s":"Complementos"},"WBN3C":{"c":"Manta Pesada","s":"Manta Pesada"},"WBN3G":{"c":"Manta Pesada","s":"Manta Pesada"},"WBN3W":{"c":"Manta Pesada","s":"Manta Pesada"},"WBN3B":{"c":"Manta Pesada","s":"Manta Pesada"},"WBS5C":{"c":"Manta Pesada","s":"Manta Pesada"},"WBS5G":{"c":"Manta Pesada","s":"Manta Pesada"},"WBS5W":{"c":"Manta Pesada","s":"Manta Pesada"},"WBS5B":{"c":"Manta Pesada","s":"Manta Pesada"},"WBS7C":{"c":"Manta Pesada","s":"Manta Pesada"},"WBS7G":{"c":"Manta Pesada","s":"Manta Pesada"},"WBS7W":{"c":"Manta Pesada","s":"Manta Pesada"},"WBS7B":{"c":"Manta Pesada","s":"Manta Pesada"},"WBS9C":{"c":"Manta Pesada","s":"Manta Pesada"},"WBS9G":{"c":"Manta Pesada","s":"Manta Pesada"},"WBS9W":{"c":"Manta Pesada","s":"Manta Pesada"},"WBS9B":{"c":"Manta Pesada","s":"Manta Pesada"},"WBQ6C":{"c":"Manta Pesada","s":"Manta Pesada"},"WBQ6G":{"c":"Manta Pesada","s":"Manta Pesada"},"WBQ6W":{"c":"Manta Pesada","s":"Manta Pesada"},"WBQ6B":{"c":"Manta Pesada","s":"Manta Pesada"},"WBQ8C":{"c":"Manta Pesada","s":"Manta Pesada"},"WBQ8G":{"c":"Manta Pesada","s":"Manta Pesada"},"WBQ8W":{"c":"Manta Pesada","s":"Manta Pesada"},"WBQ8B":{"c":"Manta Pesada","s":"Manta Pesada"},"WBQ10C":{"c":"Manta Pesada","s":"Manta Pesada"},"WBQ10G":{"c":"Manta Pesada","s":"Manta Pesada"},"WBQ10W":{"c":"Manta Pesada","s":"Manta Pesada"},"WBQ10B":{"c":"Manta Pesada","s":"Manta Pesada"},"WBK7C":{"c":"Manta Pesada","s":"Manta Pesada"},"WBK7G":{"c":"Manta Pesada","s":"Manta Pesada"},"WBK7W":{"c":"Manta Pesada","s":"Manta Pesada"},"WBK7B":{"c":"Manta Pesada","s":"Manta Pesada"},"WBK9C":{"c":"Manta Pesada","s":"Manta Pesada"},"WBK9G":{"c":"Manta Pesada","s":"Manta Pesada"},"WBK9W":{"c":"Manta Pesada","s":"Manta Pesada"},"WBK9B":{"c":"Manta Pesada","s":"Manta Pesada"},"WBK11C":{"c":"Manta Pesada","s":"Manta Pesada"},"WBK11G":{"c":"Manta Pesada","s":"Manta Pesada"},"WBK11W":{"c":"Manta Pesada","s":"Manta Pesada"},"WBK11B":{"c":"Manta Pesada","s":"Manta Pesada"},"MLN3C":{"c":"Manta Pesada","s":"Manta Pesada"},"MLN3G":{"c":"Manta Pesada","s":"Manta Pesada"},"MLN3W":{"c":"Manta Pesada","s":"Manta Pesada"},"MLN3B":{"c":"Manta Pesada","s":"Manta Pesada"},"MLS5C":{"c":"Manta Pesada","s":"Manta Pesada"},"MLS5G":{"c":"Manta Pesada","s":"Manta Pesada"},"MLS5W":{"c":"Manta Pesada","s":"Manta Pesada"},"MLS5B":{"c":"Manta Pesada","s":"Manta Pesada"},"MLS7C":{"c":"Manta Pesada","s":"Manta Pesada"},"MLS7G":{"c":"Manta Pesada","s":"Manta Pesada"},"MLS7W":{"c":"Manta Pesada","s":"Manta Pesada"},"MLS7B":{"c":"Manta Pesada","s":"Manta Pesada"},"MLS9C":{"c":"Manta Pesada","s":"Manta Pesada"},"MLS9G":{"c":"Manta Pesada","s":"Manta Pesada"},"MLS9W":{"c":"Manta Pesada","s":"Manta Pesada"},"MLS9B":{"c":"Manta Pesada","s":"Manta Pesada"},"MLQ6C":{"c":"Manta Pesada","s":"Manta Pesada"},"MLQ6G":{"c":"Manta Pesada","s":"Manta Pesada"},"MLQ6W":{"c":"Manta Pesada","s":"Manta Pesada"},"MLQ6B":{"c":"Manta Pesada","s":"Manta Pesada"},"MLQ8C":{"c":"Manta Pesada","s":"Manta Pesada"},"MLQ8G":{"c":"Manta Pesada","s":"Manta Pesada"},"MLQ8W":{"c":"Manta Pesada","s":"Manta Pesada"},"MLQ8B":{"c":"Manta Pesada","s":"Manta Pesada"},"MLQ10C":{"c":"Manta Pesada","s":"Manta Pesada"},"MLQ10G":{"c":"Manta Pesada","s":"Manta Pesada"},"MLQ10W":{"c":"Manta Pesada","s":"Manta Pesada"},"MLQ10B":{"c":"Manta Pesada","s":"Manta Pesada"},"MLK7C":{"c":"Manta Pesada","s":"Manta Pesada"},"MLK7G":{"c":"Manta Pesada","s":"Manta Pesada"},"MLK7W":{"c":"Manta Pesada","s":"Manta Pesada"},"MLK7B":{"c":"Manta Pesada","s":"Manta Pesada"},"MLK9C":{"c":"Manta Pesada","s":"Manta Pesada"},"MLK9G":{"c":"Manta Pesada","s":"Manta Pesada"},"MLK9W":{"c":"Manta Pesada","s":"Manta Pesada"},"MLK9B":{"c":"Manta Pesada","s":"Manta Pesada"},"MLK11C":{"c":"Manta Pesada","s":"Manta Pesada"},"MLK11G":{"c":"Manta Pesada","s":"Manta Pesada"},"MLK11W":{"c":"Manta Pesada","s":"Manta Pesada"},"MLK11B":{"c":"Manta Pesada","s":"Manta Pesada"},"BBSC":{"c":"Ropa de Cama","s":"Set Sábanas"},"BBSG":{"c":"Ropa de Cama","s":"Set Sábanas"},"BBSW":{"c":"Ropa de Cama","s":"Set Sábanas"},"BBSB":{"c":"Ropa de Cama","s":"Set Sábanas"},"BBSN":{"c":"Ropa de Cama","s":"Set Sábanas"},"BB2SC":{"c":"Ropa de Cama","s":"Set Sábanas"},"BB2SG":{"c":"Ropa de Cama","s":"Set Sábanas"},"BB2SW":{"c":"Ropa de Cama","s":"Set Sábanas"},"BB2SA":{"c":"Ropa de Cama","s":"Set Sábanas"},"BB2SN":{"c":"Ropa de Cama","s":"Set Sábanas"},"BBQC":{"c":"Ropa de Cama","s":"Set Sábanas"},"BBQG":{"c":"Ropa de Cama","s":"Set Sábanas"},"BBQW":{"c":"Ropa de Cama","s":"Set Sábanas"},"BBQB":{"c":"Ropa de Cama","s":"Set Sábanas"},"BBQN":{"c":"Ropa de Cama","s":"Set Sábanas"},"BBKC":{"c":"Ropa de Cama","s":"Set Sábanas"},"BBKG":{"c":"Ropa de Cama","s":"Set Sábanas"},"BBKW":{"c":"Ropa de Cama","s":"Set Sábanas"},"BBKB":{"c":"Ropa de Cama","s":"Set Sábanas"},"BBKN":{"c":"Ropa de Cama","s":"Set Sábanas"},"BB2KC":{"c":"Ropa de Cama","s":"Set Sábanas"},"BB2KG":{"c":"Ropa de Cama","s":"Set Sábanas"},"BB2KW":{"c":"Ropa de Cama","s":"Set Sábanas"},"BB2KB":{"c":"Ropa de Cama","s":"Set Sábanas"},"BB2KN":{"c":"Ropa de Cama","s":"Set Sábanas"},"SWTQW":{"c":"Ropa de Cama","s":"Set Sábanas Pro"},"SWTQT":{"c":"Ropa de Cama","s":"Set Sábanas Pro"},"SWTQC":{"c":"Ropa de Cama","s":"Set Sábanas Pro"},"SWTQB":{"c":"Ropa de Cama","s":"Set Sábanas Pro"},"SWTKW":{"c":"Ropa de Cama","s":"Set Sábanas Pro"},"SWTKT":{"c":"Ropa de Cama","s":"Set Sábanas Pro"},"SWTKC":{"c":"Ropa de Cama","s":"Set Sábanas Pro"},"SWTKB":{"c":"Ropa de Cama","s":"Set Sábanas Pro"},"SWTSW":{"c":"Ropa de Cama","s":"Set Sábanas Pro"},"SWTST":{"c":"Ropa de Cama","s":"Set Sábanas Pro"},"SWTSC":{"c":"Ropa de Cama","s":"Set Sábanas Pro"},"SWTSB":{"c":"Ropa de Cama","s":"Set Sábanas Pro"},"SLSC":{"c":"Ropa de Cama","s":"Set Sábanas"},"SLSG":{"c":"Ropa de Cama","s":"Set Sábanas"},"SLSW":{"c":"Ropa de Cama","s":"Set Sábanas"},"SLSB":{"c":"Ropa de Cama","s":"Set Sábanas"},"SL2SC":{"c":"Ropa de Cama","s":"Set Sábanas"},"SL2SG":{"c":"Ropa de Cama","s":"Set Sábanas"},"SL2SW":{"c":"Ropa de Cama","s":"Set Sábanas"},"SL2SB":{"c":"Ropa de Cama","s":"Set Sábanas"},"SLQC":{"c":"Ropa de Cama","s":"Set Sábanas"},"SLQG":{"c":"Ropa de Cama","s":"Set Sábanas"},"SLQW":{"c":"Ropa de Cama","s":"Set Sábanas"},"SLQB":{"c":"Ropa de Cama","s":"Set Sábanas"},"SLKC":{"c":"Ropa de Cama","s":"Set Sábanas"},"SLKG":{"c":"Ropa de Cama","s":"Set Sábanas"},"SLKW":{"c":"Ropa de Cama","s":"Set Sábanas"},"SLKB":{"c":"Ropa de Cama","s":"Set Sábanas"},"SL2KC":{"c":"Ropa de Cama","s":"Set Sábanas"},"SL2KG":{"c":"Ropa de Cama","s":"Set Sábanas"},"SL2KW":{"c":"Ropa de Cama","s":"Set Sábanas"},"SL2KB":{"c":"Ropa de Cama","s":"Set Sábanas"},"BCSW":{"c":"Ropa de Cama","s":"Set Sábanas"},"BCSM":{"c":"Ropa de Cama","s":"Set Sábanas"},"BCSV":{"c":"Ropa de Cama","s":"Set Sábanas"},"BCSC":{"c":"Ropa de Cama","s":"Set Sábanas"},"BCSS":{"c":"Ropa de Cama","s":"Set Sábanas"},"BC2SW":{"c":"Ropa de Cama","s":"Set Sábanas"},"BC2SM":{"c":"Ropa de Cama","s":"Set Sábanas"},"BC2SV":{"c":"Ropa de Cama","s":"Set Sábanas"},"BC2SC":{"c":"Ropa de Cama","s":"Set Sábanas"},"BC2SS":{"c":"Ropa de Cama","s":"Set Sábanas"},"BCQW":{"c":"Ropa de Cama","s":"Set Sábanas"},"BCQM":{"c":"Ropa de Cama","s":"Set Sábanas"},"BCQV":{"c":"Ropa de Cama","s":"Set Sábanas"},"BCQC":{"c":"Ropa de Cama","s":"Set Sábanas"},"BCQS":{"c":"Ropa de Cama","s":"Set Sábanas"},"BCKW":{"c":"Ropa de Cama","s":"Set Sábanas"},"BCKM":{"c":"Ropa de Cama","s":"Set Sábanas"},"BCKV":{"c":"Ropa de Cama","s":"Set Sábanas"},"BCKC":{"c":"Ropa de Cama","s":"Set Sábanas"},"BCKS":{"c":"Ropa de Cama","s":"Set Sábanas"},"BC2KW":{"c":"Ropa de Cama","s":"Set Sábanas"},"BC2KM":{"c":"Ropa de Cama","s":"Set Sábanas"},"BC2KV":{"c":"Ropa de Cama","s":"Set Sábanas"},"BC2KC":{"c":"Ropa de Cama","s":"Set Sábanas"},"BC2KS":{"c":"Ropa de Cama","s":"Set Sábanas"},"SBSC":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SBSG":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SBSW":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SBSB":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SBSN":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SB2SC":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SB2SG":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SB2SW":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SB2SB":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SB2SN":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SBQC":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SBQG":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SBQW":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SBQB":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SBQN":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SBKC":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SBKG":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SBKW":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SBKB":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SBKN":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SB2KC":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SB2KG":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SB2KW":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SB2KB":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SB2KN":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SCSW":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SCSM":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SCSV":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SCSC":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SCSS":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SC2SW":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SC2SM":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SC2SV":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SC2SC":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SC2SS":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SCQW":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SCQM":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SCQV":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SCQC":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SCQS":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SCKW":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SCKM":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SCKV":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SCKC":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SCKS":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SC2KW":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SC2KM":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SC2KV":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SC2KC":{"c":"Ropa de Cama","s":"Sábana Bajera"},"SC2KS":{"c":"Ropa de Cama","s":"Sábana Bajera"},"PLSICO":{"c":"Ropa de Cama","s":"Plumón"},"PLSSCO":{"c":"Ropa de Cama","s":"Plumón"},"PLQUCO":{"c":"Ropa de Cama","s":"Plumón"},"PLKICO":{"c":"Ropa de Cama","s":"Plumón"},"PLSKCO":{"c":"Ropa de Cama","s":"Plumón"},"DBSC":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DBSG":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DBSW":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DBSB":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DBSN":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DB2SC":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DB2SG":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DB2SW":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DB2SA":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DB2SN":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DBQC":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DBQG":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DBQW":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DBQB":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DBQN":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DBKC":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DBKG":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DBKW":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DBKB":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DBKN":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DB2KC":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DB2KG":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DB2KW":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DB2KB":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DB2KN":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DWTQW":{"c":"Ropa de Cama","s":"Funda de Plumón Pro"},"DWTQT":{"c":"Ropa de Cama","s":"Funda de Plumón Pro"},"DWTQC":{"c":"Ropa de Cama","s":"Funda de Plumón Pro"},"DWTQB":{"c":"Ropa de Cama","s":"Funda de Plumón Pro"},"DWTKW":{"c":"Ropa de Cama","s":"Funda de Plumón Pro"},"DWTKT":{"c":"Ropa de Cama","s":"Funda de Plumón Pro"},"DWTKC":{"c":"Ropa de Cama","s":"Funda de Plumón Pro"},"DWTKB":{"c":"Ropa de Cama","s":"Funda de Plumón Pro"},"DWTSW":{"c":"Ropa de Cama","s":"Funda de Plumón Pro"},"DWTST":{"c":"Ropa de Cama","s":"Funda de Plumón Pro"},"DWTSC":{"c":"Ropa de Cama","s":"Funda de Plumón Pro"},"DWTSB":{"c":"Ropa de Cama","s":"Funda de Plumón Pro"},"DCSW":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DCSM":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DCSV":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DCSC":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DCSS":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DC2SW":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DC2SM":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DC2SV":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DC2SC":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DC2SS":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DCQW":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DCQM":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DCQV":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DCQC":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DCQS":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DCKW":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DCKM":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DCKV":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DCKC":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DCKS":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DC2KW":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DC2KM":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DC2KV":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DC2KC":{"c":"Ropa de Cama","s":"Funda de Plumón"},"DC2KS":{"c":"Ropa de Cama","s":"Funda de Plumón"},"PBQC":{"c":"Ropa de Cama","s":"Funda Almohada"},"PBQG":{"c":"Ropa de Cama","s":"Funda Almohada"},"PBQW":{"c":"Ropa de Cama","s":"Funda Almohada"},"PBQB":{"c":"Ropa de Cama","s":"Funda Almohada"},"PBQN":{"c":"Ropa de Cama","s":"Funda Almohada"},"PBKC":{"c":"Ropa de Cama","s":"Funda Almohada"},"PBKG":{"c":"Ropa de Cama","s":"Funda Almohada"},"PBKW":{"c":"Ropa de Cama","s":"Funda Almohada"},"PBKB":{"c":"Ropa de Cama","s":"Funda Almohada"},"PBKN":{"c":"Ropa de Cama","s":"Funda Almohada"},"PLQC":{"c":"Ropa de Cama","s":"Funda Almohada Lite"},"PLQG":{"c":"Ropa de Cama","s":"Funda Almohada Lite"},"PLQW":{"c":"Ropa de Cama","s":"Funda Almohada Lite"},"PLQB":{"c":"Ropa de Cama","s":"Funda Almohada Lite"},"PLKC":{"c":"Ropa de Cama","s":"Funda Almohada Lite"},"PLKG":{"c":"Ropa de Cama","s":"Funda Almohada Lite"},"PLKW":{"c":"Ropa de Cama","s":"Funda Almohada Lite"},"PLKB":{"c":"Ropa de Cama","s":"Funda Almohada Lite"},"PCQW":{"c":"Ropa de Cama","s":"Funda Almohada"},"PCQM":{"c":"Ropa de Cama","s":"Funda Almohada"},"PCQV":{"c":"Ropa de Cama","s":"Funda Almohada"},"PCQC":{"c":"Ropa de Cama","s":"Funda Almohada"},"PCQS":{"c":"Ropa de Cama","s":"Funda Almohada"},"PCKW":{"c":"Ropa de Cama","s":"Funda Almohada"},"PCKM":{"c":"Ropa de Cama","s":"Funda Almohada"},"PCKV":{"c":"Ropa de Cama","s":"Funda Almohada"},"PCKC":{"c":"Ropa de Cama","s":"Funda Almohada"},"PCKS":{"c":"Ropa de Cama","s":"Funda Almohada"},"WTMS6G":{"c":"Manta Pesada","s":"Frazada Pesada"},"WTMS6C":{"c":"Manta Pesada","s":"Frazada Pesada"},"WTMM6G":{"c":"Manta Pesada","s":"Frazada Pesada"},"WTMM6C":{"c":"Manta Pesada","s":"Frazada Pesada"},"WTOS6G":{"c":"Manta Pesada","s":"Frazada Pesada"},"WTOO6G":{"c":"Manta Pesada","s":"Frazada Pesada"},"NS6CR":{"c":"Manta Pesada","s":"Napper"},"NS6CV":{"c":"Manta Pesada","s":"Napper"},"NS6CG":{"c":"Manta Pesada","s":"Napper"},"NS6CC":{"c":"Manta Pesada","s":"Napper"},"NS6CA":{"c":"Manta Pesada","s":"Napper"},"NS6CT":{"c":"Manta Pesada","s":"Napper"},"ACL70ST":{"c":"Ropa de Cama","s":"Almohadas"},"ACL90ST":{"c":"Ropa de Cama","s":"Almohadas"},"ACL70LI":{"c":"Ropa de Cama","s":"Almohadas"},"ACL90LI":{"c":"Ropa de Cama","s":"Almohadas"},"AFXSC":{"c":"Estilo","s":"Pijama"},"AFSC":{"c":"Estilo","s":"Pijama"},"AFMC":{"c":"Estilo","s":"Pijama"},"AFLC":{"c":"Estilo","s":"Pijama"},"AFXSV":{"c":"Estilo","s":"Pijama"},"AFSV":{"c":"Estilo","s":"Pijama"},"AFMV":{"c":"Estilo","s":"Pijama"},"AFLV":{"c":"Estilo","s":"Pijama"},"AFXSB":{"c":"Estilo","s":"Pijama"},"AFSB":{"c":"Estilo","s":"Pijama"},"AFMB":{"c":"Estilo","s":"Pijama"},"AFLB":{"c":"Estilo","s":"Pijama"},"AFXSR":{"c":"Estilo","s":"Pijama"},"AFSR":{"c":"Estilo","s":"Pijama"},"AFMR":{"c":"Estilo","s":"Pijama"},"AFLR":{"c":"Estilo","s":"Pijama"},"AMSC":{"c":"Estilo","s":"Pijama"},"AMMC":{"c":"Estilo","s":"Pijama"},"AMLC":{"c":"Estilo","s":"Pijama"},"AMXLC":{"c":"Estilo","s":"Pijama"},"AMSA":{"c":"Estilo","s":"Pijama"},"AMMA":{"c":"Estilo","s":"Pijama"},"AMLA":{"c":"Estilo","s":"Pijama"},"AMXLA":{"c":"Estilo","s":"Pijama"},"AMST":{"c":"Estilo","s":"Pijama"},"AMMT":{"c":"Estilo","s":"Pijama"},"AMLT":{"c":"Estilo","s":"Pijama"},"AMXLT":{"c":"Estilo","s":"Pijama"},"WFXSC":{"c":"Estilo","s":"Pijama"},"WFSC":{"c":"Estilo","s":"Pijama"},"WFMC":{"c":"Estilo","s":"Pijama"},"WFLC":{"c":"Estilo","s":"Pijama"},"WFXSN":{"c":"Estilo","s":"Pijama"},"WFSN":{"c":"Estilo","s":"Pijama"},"WFMN":{"c":"Estilo","s":"Pijama"},"WFLN":{"c":"Estilo","s":"Pijama"},"WFXST":{"c":"Estilo","s":"Pijama"},"WFST":{"c":"Estilo","s":"Pijama"},"WFMT":{"c":"Estilo","s":"Pijama"},"WFLT":{"c":"Estilo","s":"Pijama"},"WMSC":{"c":"Estilo","s":"Pijama"},"WMMC":{"c":"Estilo","s":"Pijama"},"WMLC":{"c":"Estilo","s":"Pijama"},"WMXLC":{"c":"Estilo","s":"Pijama"},"WMSN":{"c":"Estilo","s":"Pijama"},"WMMN":{"c":"Estilo","s":"Pijama"},"WMLN":{"c":"Estilo","s":"Pijama"},"WMXLN":{"c":"Estilo","s":"Pijama"},"WMST":{"c":"Estilo","s":"Pijama"},"WMMT":{"c":"Estilo","s":"Pijama"},"WMLT":{"c":"Estilo","s":"Pijama"},"WMXLT":{"c":"Estilo","s":"Pijama"},"PANE36":{"c":"Estilo","s":"Pantuflas"},"PANE38":{"c":"Estilo","s":"Pantuflas"},"PANE40":{"c":"Estilo","s":"Pantuflas"},"PANE41":{"c":"Estilo","s":"Pantuflas"},"PANE43":{"c":"Estilo","s":"Pantuflas"},"PANE45":{"c":"Estilo","s":"Pantuflas"},"PAGR41":{"c":"Estilo","s":"Pantuflas"},"PAGR43":{"c":"Estilo","s":"Pantuflas"},"PAGR45":{"c":"Estilo","s":"Pantuflas"},"PAPI36":{"c":"Estilo","s":"Pantuflas"},"PAPI38":{"c":"Estilo","s":"Pantuflas"},"PAPI40":{"c":"Estilo","s":"Pantuflas"},"PAPI41":{"c":"Estilo","s":"Pantuflas"},"PABE36":{"c":"Estilo","s":"Pantuflas"},"PABE38":{"c":"Estilo","s":"Pantuflas"},"PABE40":{"c":"Estilo","s":"Pantuflas"},"PABE41":{"c":"Estilo","s":"Pantuflas"},"PABE43":{"c":"Estilo","s":"Pantuflas"},"PABE45":{"c":"Estilo","s":"Pantuflas"},"PACH36":{"c":"Estilo","s":"Pantuflas"},"PACH38":{"c":"Estilo","s":"Pantuflas"},"PACH40":{"c":"Estilo","s":"Pantuflas"},"PACH41":{"c":"Estilo","s":"Pantuflas"},"PACH43":{"c":"Estilo","s":"Pantuflas"},"PACH45":{"c":"Estilo","s":"Pantuflas"},"PCAR38":{"c":"Estilo","s":"Pantuflas"},"PCAR40":{"c":"Estilo","s":"Pantuflas"},"PCAR42":{"c":"Estilo","s":"Pantuflas"},"PCAR44":{"c":"Estilo","s":"Pantuflas"},"PCAR45":{"c":"Estilo","s":"Pantuflas"},"PCCA38":{"c":"Estilo","s":"Pantuflas"},"PCCA40":{"c":"Estilo","s":"Pantuflas"},"PCCA42":{"c":"Estilo","s":"Pantuflas"},"PCCA44":{"c":"Estilo","s":"Pantuflas"},"PCCA45":{"c":"Estilo","s":"Pantuflas"},"ANBLTU3D":{"c":"Accesorios","s":"Antifaz"},"ANBLTUPR":{"c":"Accesorios","s":"Antifaz"},"NPOSGR":{"c":"Accesorios","s":"Cuello"},"NPOSPI":{"c":"Accesorios","s":"Cuello"},"NPOSVE":{"c":"Accesorios","s":"Cuello"},"MRDW":{"c":"Accesorios","s":"Máquina Ruido Blanco"},"MRDV":{"c":"Accesorios","s":"Máquina Ruido Blanco"},"MRPW":{"c":"Accesorios","s":"Máquina Ruido Blanco"},"LNGW":{"c":"Accesorios","s":"Luz Nocturna"},"TADITUNE":{"c":"Accesorios","s":"Tapones"},"TADITURO":{"c":"Accesorios","s":"Tapones"},"TADITUVE":{"c":"Accesorios","s":"Tapones"},"TADITUBL":{"c":"Accesorios","s":"Tapones"},"TADITUPI":{"c":"Accesorios","s":"Tapones"},"BNP30":{"c":"Accesorios","s":"Banda Nasal"},"RNS30":{"c":"Accesorios","s":"Banda Nasal"},"BOSTCR":{"c":"Botella","s":"Stanley"},"BOSTGR":{"c":"Botella","s":"Stanley"},"BOSTSH":{"c":"Botella","s":"Stanley"},"BOSTDD":{"c":"Botella","s":"Stanley"},"PLMB60":{"c":"Accesorios","s":"Magnesio"},"PLMB60X2":{"c":"Accesorios","s":"Magnesio"},"PLMB60X3":{"c":"Accesorios","s":"Magnesio"},"SD75M":{"c":"Accesorios","s":"Spray"},"SR10M":{"c":"Accesorios","s":"Roll On"},"WBDNC":{"c":"Manta Pesada","s":"Cobertor Bambú"},"WBDNG":{"c":"Manta Pesada","s":"Cobertor Bambú"},"WBDNW":{"c":"Manta Pesada","s":"Cobertor Bambú"},"WBDNB":{"c":"Manta Pesada","s":"Cobertor Bambú"},"WBDSC":{"c":"Manta Pesada","s":"Cobertor Bambú"},"WBDSG":{"c":"Manta Pesada","s":"Cobertor Bambú"},"WBDSW":{"c":"Manta Pesada","s":"Cobertor Bambú"},"WBDSB":{"c":"Manta Pesada","s":"Cobertor Bambú"},"WBDQC":{"c":"Manta Pesada","s":"Cobertor Bambú"},"WBDQG":{"c":"Manta Pesada","s":"Cobertor Bambú"},"WBDQW":{"c":"Manta Pesada","s":"Cobertor Bambú"},"WBDQB":{"c":"Manta Pesada","s":"Cobertor Bambú"},"WBDKC":{"c":"Manta Pesada","s":"Cobertor Bambú"},"WBDKG":{"c":"Manta Pesada","s":"Cobertor Bambú"},"WBDKW":{"c":"Manta Pesada","s":"Cobertor Bambú"},"WBDKB":{"c":"Manta Pesada","s":"Cobertor Bambú"},"WMDNC":{"c":"Manta Pesada","s":"Cobertor Minky"},"WMDNG":{"c":"Manta Pesada","s":"Cobertor Minky"},"WMDSC":{"c":"Manta Pesada","s":"Cobertor Minky"},"WMDSG":{"c":"Manta Pesada","s":"Cobertor Minky"},"WMDQC":{"c":"Manta Pesada","s":"Cobertor Minky"},"WMDQG":{"c":"Manta Pesada","s":"Cobertor Minky"},"WMDKC":{"c":"Manta Pesada","s":"Cobertor Minky"},"WMDKG":{"c":"Manta Pesada","s":"Cobertor Minky"}},"cats":["Accesorios","Botella","Cama","Colchón","Estilo","Manta Pesada","Ropa de Cama"],"subs":{"Cama":["Cama Endless","Cama Essence"],"Colchón":["Base Colchón","Colchón Endless","Colchón Essence"],"Ropa de Cama":["Almohadas","Complementos","Funda Almohada","Funda Almohada Lite","Funda de Plumón","Funda de Plumón Pro","Plumón","Set Sábanas","Set Sábanas Pro","Sábana Bajera"],"Manta Pesada":["Cobertor Bambú","Cobertor Minky","Frazada Pesada","Manta Pesada","Napper"],"Estilo":["Pantuflas","Pijama"],"Accesorios":["Antifaz","Banda Nasal","Cuello","Luz Nocturna","Magnesio","Máquina Ruido Blanco","Roll On","Spray","Tapones"],"Botella":["Stanley"]}};
+
+// ─────────────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  // Auto-refresh cada 5 min (el primer fetch lo dispara show() en el módulo de auth)
+  setInterval(fetchData, 30 * 60 * 1000);
+});
+
+// ─────────────────────────────────────────────────────
+//  URL CONFIG
+// ─────────────────────────────────────────────────────
+function saveURL() {
+  // Función legacy — ya no se usa (URL hardcodeada)
+}
+
+// ─────────────────────────────────────────────────────
+//  FETCH
+// ─────────────────────────────────────────────────────
+function setStatus(state, text) {
+  const dot = document.getElementById('status-dot');
+  dot.className = state;
+  document.getElementById('status-text').textContent = text;
+}
+
+async function fetchData() {
+  nextRefresh = Date.now() + 30*60*1000;
+  if (!SCRIPT_URL) return;
+  setStatus('loading', 'cargando…');
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = `<tr><td colspan="16"><div class="placeholder">
+    <div><span class="spinner"></span>conectando con Google Sheets…</div>
+  </div></td></tr>`;
+
+  try {
+    const res  = await fetch(SCRIPT_URL);
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || 'Error en el script');
+
+    DATA_RAW = json.data;
+    // Debug: ver qué campos trae el primer registro
+    if (DATA_RAW.length) console.log('[Hypnos] Campos JSON:', Object.keys(DATA_RAW[0]));
+    const now = new Date().toLocaleString('es-CL', {
+      hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'
+    });
+    setStatus('ok', `actualizado ${now} · ${DATA_RAW.length} registros`);
+    populateRegionFilter();
+    populateCatFilter();
+    populateProbCatFilter();
+    renderAll();
+    fetchProblemas(); // load Problemas from GAS in parallel
+  } catch(e) {
+    setStatus('error', 'error al cargar');
+    tbody.innerHTML = `<tr><td colspan="16"><div class="placeholder">
+      <div class="big">⚠</div>
+      <p>No se pudo conectar.<br><small style="opacity:.6">${e.message}</small></p>
+    </div></td></tr>`;
+  }
+}
+
+// ─────────────────────────────────────────────────────
+//  HELPERS FECHA / PROMESA
+// ─────────────────────────────────────────────────────
+function lastEstadoDate(r) {
+  const h = String(r.historial_estados || r.historial || '');
+  if (!h) return '—';
+  const first = h.split(';;')[0];
+  if (!first) return '—';
+  const fecha = first.split('|')[0] || '';
+  return fecha.trim() || '—';
+}
+
+function horasEnPrep(r) {
+  if (hasDspr(r)) return null; // programar envío: sin vencimiento
+  const esPrep = isEstadoPrep(String(r.estado_blue||'').toLowerCase()) ||
+                 String(r.estado_blue||'').toLowerCase().includes('listo') ||
+                 String(r.estado_blue||'').toLowerCase().includes('generac');
+  if (!esPrep) return null;
+  const fc = String(r.fecha_creacion||'');
+  const m = fc.match(/^(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})/);
+  if (!m) return null;
+  const d = new Date(+m[3], +m[2]-1, +m[1], +m[4], +m[5]);
+  return (Date.now() - d.getTime()) / 3600000;
+}
+
+function slaVencido(r) {
+  const hp = horasEnPrep(r);
+  if (hp === null) return false;
+  const svc = String(r.envio_blue || r.envio_starkoms || '').toUpperCase();
+  const isExpress  = svc.includes('EXPRESS');
+  const isPriority = svc.includes('PRIORITY');
+  const isSameday  = svc.includes('SAMEDAY') || svc.includes('SAME DAY');
+  const isFlex     = svc.includes('FLEX') || svc.includes('MELI');
+  if (isExpress)  return hp > 48;
+  if (isPriority) return hp > 24;
+  if (isSameday || isFlex) {
+    // Atrasado si ya pasaron las 15:00 del mismo día (lun-sab), o ya es otro día hábil
+    const fc = String(r.fecha_creacion||'');
+    const m2 = fc.match(/^(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})/);
+    if (!m2) return hp > 8;
+    const created = new Date(+m2[3], +m2[2]-1, +m2[1]);
+    const createdDow = created.getDay(); // 0=dom
+    // Cutoff: 15:00 del día de creación si es lun-sab, o primer lun-sab siguiente si dom
+    let cutoff = new Date(created);
+    if (createdDow === 0) { // domingo → lunes
+      cutoff.setDate(cutoff.getDate() + 1);
+    }
+    cutoff.setHours(15, 0, 0, 0);
+    return Date.now() > cutoff.getTime();
+  }
+  // Default: usar slaPrepHoras global
+  return hp > slaPrepHoras;
+}
+
+function prepTimeLabel(r) {
+  const hp = horasEnPrep(r);
+  if (hp === null) return '';
+  const svc = String(r.envio_blue || r.envio_starkoms || '').toUpperCase();
+  const isExpress  = svc.includes('EXPRESS');
+  const isPriority = svc.includes('PRIORITY');
+  const isSameday  = svc.includes('SAMEDAY') || svc.includes('SAME DAY');
+  const isFlex     = svc.includes('FLEX') || svc.includes('MELI');
+
+  let slaH = slaPrepHoras; // default
+  let cutoffTs = null;
+
+  if (isExpress)  slaH = 48;
+  else if (isPriority) slaH = 24;
+  else if (isSameday || isFlex) {
+    const fc = String(r.fecha_creacion||'');
+    const m2 = fc.match(/^(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})/);
+    if (m2) {
+      const created = new Date(+m2[3], +m2[2]-1, +m2[1]);
+      if (created.getDay() === 0) created.setDate(created.getDate() + 1);
+      const cutoff = new Date(created); cutoff.setHours(15, 0, 0, 0);
+      cutoffTs = cutoff.getTime();
+    }
+  }
+
+  if (cutoffTs !== null) {
+    const diffMin = Math.round((cutoffTs - Date.now()) / 60000);
+    if (diffMin > 0) {
+      const h = Math.floor(diffMin / 60), mn = diffMin % 60;
+      return `⏱ ${h > 0 ? h + 'h ' : ''}${mn}min`;
+    } else {
+      const elapsed = Math.abs(diffMin);
+      const h = Math.floor(elapsed / 60), mn = elapsed % 60;
+      return `🔴 venc. hace ${h > 0 ? h + 'h ' : ''}${mn}min`;
+    }
+  }
+
+  const restH = slaH - hp;
+  if (restH > 0) {
+    const h = Math.floor(restH), mn = Math.round((restH - h) * 60);
+    return `⏱ ${h}h${mn > 0 ? ' ' + mn + 'min' : ''}`;
+  } else {
+    const elapH = Math.floor(hp - slaH), elapM = Math.round(((hp - slaH) % 1) * 60);
+    return `🔴 venc. hace ${elapH}h${elapM > 0 ? ' ' + elapM + 'min' : ''}`;
+  }
+}
+
+function parsePromesa(str) {
+  if (!str) return null;
+  // DD-MM-YYYY o DD-MM-YYYY HH:mm (formato Apps Script)
+  const m = String(str).match(/^(\d{2})-(\d{2})-(\d{4})/);
+  if (m) return new Date(+m[3], +m[2]-1, +m[1]);
+  const d = new Date(str);
+  return isNaN(d) ? null : d;
+}
+
+function todayDate() {
+  const t = new Date();
+  return new Date(t.getFullYear(), t.getMonth(), t.getDate());
+}
+
+function addBusinessDays(date, days) {
+  const d = new Date(date);
+  let added = 0;
+  while (added < days) {
+    d.setDate(d.getDate() + 1);
+    const dow = d.getDay(); // 0=Sun, 6=Sat
+    if (dow !== 0 && dow !== 6) added++;
+  }
+  return d;
+}
+
+function getPromesaAjustada(r) {
+  const base = parsePromesa(r.promesa_entrega);
+  if (!base) return null;
+  if (!blackCyberActive) return base;
+  const svc = String(r.envio_blue || r.envio_starkoms || '').toUpperCase();
+  if (svc.includes('PRIORITY') || svc.includes('EXPRESS')) {
+    return addBusinessDays(base, blackCyberDias);
+  }
+  return base;
+}
+
+function toggleBlackCyber(btn) {
+  blackCyberActive = !blackCyberActive;
+  btn.classList.toggle('active', blackCyberActive);
+  document.getElementById('input-bc-dias').style.display = blackCyberActive ? '' : 'none';
+  renderAll();
+}
+
+function estadoPromesa(row) {
+  const entregados = ['entregado','entregado punto blue','devuelto'];
+  const est = String(row.estado_blue || '').toLowerCase();
+  if (entregados.some(e => est.includes(e))) return 'ok';
+  const p = getPromesaAjustada(row);
+  if (!p) return 'ok';
+  const hoy = todayDate();
+  if (p < hoy) return 'vencida';
+  if (p.getTime() === hoy.getTime()) return 'riesgo';
+  return 'ok';
+}
+
+function getField(row, ...keys) {
+  for (const k of keys) {
+    const val = row[k] ?? row[k.toLowerCase()] ?? row[k.replace(/_/g,' ')];
+    if (val !== undefined && val !== '') return val;
+  }
+  return '';
+}
+
+// ─────────────────────────────────────────────────────
+//  POPULATE REGION FILTER
+// ─────────────────────────────────────────────────────
+function populateRegionFilter() {
+  const sel = document.getElementById('f-region');
+  const current = sel.value;
+  const regiones = [...new Set(DATA_RAW.map(r =>
+    getField(r,'region_destino','Region_destino') || ''
+  ).filter(Boolean))].sort();
+
+  sel.innerHTML = '<option value="">todas</option>' +
+    regiones.map(r => `<option value="${r}">${r}</option>`).join('');
+  sel.value = current;
+}
+
+// ─────────────────────────────────────────────────────
+//  POPULATE CAT / SUB FILTERS
+// ─────────────────────────────────────────────────────
+function populateCatFilter() {
+  const sel = document.getElementById('f-cat');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Categoría</option>' +
+    MAESTRA.cats.filter(c => c !== 'Botella').map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
+function onCatChange() {
+  selectedSkus.clear();
+  updateSkuBtn();
+  buildSkuOptions();
+  renderAll();
+}
+
+// ── SKU MULTI-SELECT ─────────────────────────────
+const selectedSkus = new Set();
+
+function buildSkuOptions(searchTerm) {
+  const cat = document.getElementById('f-cat')?.value || '';
+  const search = (searchTerm || document.getElementById('sku-dd-search')?.value || '').trim().toLowerCase();
+  // Get SKUs for current category (Accesorios includes Botella)
+  let skus;
+  if (cat) {
+    const matchCats = cat === 'Accesorios' ? ['Accesorios', 'Botella'] : [cat];
+    skus = Object.entries(MAESTRA.lookup)
+      .filter(([, v]) => matchCats.includes(v.c))
+      .map(([k]) => k);
+  } else {
+    skus = Object.keys(MAESTRA.lookup);
+  }
+  skus = skus.filter(s => !search || s.toLowerCase().includes(search)).sort();
+  const list = document.getElementById('sku-dd-list');
+  if (!list) return;
+  list.innerHTML = skus.map(s =>
+    `<label class="sku-dd-item">
+      <input type="checkbox" value="${s}" ${selectedSkus.has(s)?'checked':''} onchange="toggleSkuSelection('${s}',this.checked)">
+      ${s}
+    </label>`
+  ).join('');
+}
+
+function toggleSkuDd(e) {
+  e.stopPropagation();
+  const panel = document.getElementById('sku-dd-panel');
+  const btn   = document.getElementById('sku-dd-btn');
+  const isOpen = panel.classList.contains('open');
+  // Close all other dropdowns
+  document.querySelectorAll('.sku-dd-panel.open').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.sku-dd-btn.open').forEach(b => b.classList.remove('open'));
+  if (!isOpen) {
+    panel.classList.add('open');
+    btn.classList.add('open');
+    buildSkuOptions();
+    // Position panel
+    const rect = btn.getBoundingClientRect();
+    panel.style.top  = (rect.bottom + 4) + 'px';
+    panel.style.left = rect.left + 'px';
+    document.getElementById('sku-dd-search')?.focus();
+  }
+}
+
+function filterSkuOptions(val) { buildSkuOptions(val); }
+
+function toggleSkuSelection(sku, checked) {
+  if (checked) selectedSkus.add(sku);
+  else selectedSkus.delete(sku);
+  updateSkuBtn();
+  renderAll();
+}
+
+function updateSkuBtn() {
+  const btn = document.getElementById('sku-dd-btn');
+  if (!btn) return;
+  if (selectedSkus.size === 0) {
+    btn.textContent = 'SKU';
+    btn.classList.remove('has-selection');
+  } else {
+    btn.textContent = `SKU (${selectedSkus.size})`;
+    btn.classList.add('has-selection');
+  }
+}
+
+function clearSkuFilter() {
+  selectedSkus.clear();
+  updateSkuBtn();
+  buildSkuOptions();
+  renderAll();
+}
+
+// Close SKU dropdown when clicking outside
+document.addEventListener('click', () => {
+  document.querySelectorAll('.sku-dd-panel.open').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.sku-dd-btn.open').forEach(b => b.classList.remove('open'));
+});
+
+// ─────────────────────────────────────────────────────
+//  RENDER ALL
+// ─────────────────────────────────────────────────────
+function renderAll() {
+  const filtered = applyFilters();
+  updateKPIs(filtered);
+  renderTable(filtered);
+  updateDsprBadge();
+}
+
+// ─────────────────────────────────────────────────────
+//  FILTROS
+// ─────────────────────────────────────────────────────
+function applyFilters() {
+  const q       = document.getElementById('search').value.toLowerCase().trim();
+  const fSvc    = document.getElementById('f-svc').value;
+  const fRegion = document.getElementById('f-region').value;
+  const fProm   = document.getElementById('f-promesa').value;
+
+  return DATA_RAW.filter(r => {
+    // Ocultar: fuente de verdad = columna solucionado del Excel; botón 👁 como override local temporal
+    const ref0 = r.referencia || r.id || '';
+    if (!showSolucionados && (isSolFromSheet(r) || isSolucionado(ref0))) return false;
+
+    const est    = String(r.estado_blue || '').toLowerCase();
+    const svc    = String(getField(r,'envio_blue','envio_blue_raw') || '').toUpperCase();
+    const region = String(getField(r,'region_destino','Region_destino') || '');
+    const ep     = estadoPromesa(r);
+
+    // filtro estado multi-select
+    if (activeEstados.size > 0) {
+      const cat = categorizeEstado(r.estado_blue);
+      const matchEst = [...activeEstados].some(a => {
+        if (a === '__vencida__')   return ep === 'vencida';
+        if (a === 'En Preparación') return cat === 'prep' || cat === 'listo';
+        if (a === 'En Camino')     return cat === 'camino';
+        if (a === 'Problema')      return cat === 'problema';
+        if (a === 'Entregado')     return cat === 'entregado';
+        if (a === 'Devuelto')      return cat === 'devuelto';
+        return est.includes(a.toLowerCase());
+      });
+      if (!matchEst) return false;
+    }
+
+    if (fSvc    && svc !== fSvc)            return false;
+    if (fRegion && region !== fRegion)      return false;
+    if (fProm   && ep !== fProm)            return false;
+
+    // filtro categoría / SKU
+    const fCat = document.getElementById('f-cat').value;
+    const fCatCats = fCat === 'Accesorios' ? ['Accesorios', 'Botella'] : fCat ? [fCat] : [];
+    if (fCat || selectedSkus.size > 0) {
+      const skus = String(getField(r,'lista_skus')||r.skus||'').split(',').map(s=>s.trim().toUpperCase());
+      if (fCat) {
+        const catMatch = skus.some(s => { const m = MAESTRA.lookup[s]; return m && fCatCats.includes(m.c); });
+        if (!catMatch) return false;
+      }
+      if (selectedSkus.size > 0) {
+        const skuMatch = skus.some(s => selectedSkus.has(s));
+        if (!skuMatch) return false;
+      }
+    }
+
+    // filtro fecha
+    const fDesde = document.getElementById('f-desde').value;
+    const fHasta = document.getElementById('f-hasta').value;
+    if (fDesde || fHasta) {
+      const fc = toISO(String(getField(r,'fecha_creacion')||''));
+      if (fDesde && fc < fDesde) return false;
+      if (fHasta && fc > fHasta) return false;
+    }
+
+    if (filterDspr && !hasDspr(r)) return false;
+
+    if (q) {
+      const haystack = [
+        r.referencia, r.tracking, r.lista_skus, r.skus,
+        r.comuna_destino, r.id, r.desc_estado, svc
+      ].map(v => String(v||'').toLowerCase()).join(' ');
+      if (!haystack.includes(q)) return false;
+    }
+
+    return true;
+  });
+}
+
+// ─────────────────────────────────────────────────────
+//  KPIs
+// ─────────────────────────────────────────────────────
+function updateKPIs(filtered) {
+  const all = DATA_RAW;
+  const n   = all.length;
+  const pct = v => n ? Math.round(v/n*100)+'%' : '—';
+
+  const ok      = all.filter(r => categorizeEstado(r.estado_blue) === 'entregado').length;
+  const camino  = all.filter(r => categorizeEstado(r.estado_blue) === 'camino').length;
+  const prep    = all.filter(r => { const c = categorizeEstado(r.estado_blue); return c === 'prep' || c === 'listo'; }).length;
+  const warn    = all.filter(r => categorizeEstado(r.estado_blue) === 'problema').length;
+  const devuelto= all.filter(r => String(r.estado_blue||'').toLowerCase().includes('devuelto')).length;
+  const vencida = all.filter(r => estadoPromesa(r) === 'vencida').length;
+
+  set('kn-total',  n);   set('kn-ok', ok);     set('kp-ok', pct(ok));
+  set('kn-camino', camino); set('kp-camino', pct(camino));
+  set('kn-prep',   prep);   set('kp-prep', pct(prep));
+  set('kn-warn',   warn);   set('kp-warn', pct(warn));
+  set('kn-vencida',vencida);
+
+  set('an-vencida', vencida);
+  set('an-prob',    warn);
+  set('an-prep',    prep);
+
+  // chips sidebar
+  set('chip-total',   n);
+  set('chip-ok',      ok);
+  set('chip-camino',  camino);
+  set('chip-prep',    prep);
+  set('chip-warn',    warn);
+  set('chip-dev',     devuelto);
+  set('chip-vencida', vencida);
+}
+
+function set(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+// ─────────────────────────────────────────────────────
+//  SORT
+// ─────────────────────────────────────────────────────
+function sortBy(col, th) {
+  if (sortCol === col) sortAsc = !sortAsc;
+  else { sortCol = col; sortAsc = true; }
+  document.querySelectorAll('thead th').forEach(t => t.classList.remove('sorted'));
+  th.classList.add('sorted');
+  renderAll();
+}
+
+// ─────────────────────────────────────────────────────
+//  BADGE / PROMESA
+// ─────────────────────────────────────────────────────
+function isEstadoPrep(e) {
+  return e.includes('preparac') || e.includes('preparand');
+}
+
+// Normaliza cualquier estado raw a una categoría canónica
+function categorizeEstado(raw) {
+  const e = String(raw || '').toLowerCase().trim();
+  if (!e || e === '—') return 'prep';
+
+  // Entregado a Transporte = preparación (aún no recibido por courier)
+  if (e.includes('entregado a transporte') || e.includes('entregado a courier')) return 'prep';
+
+  // Entregado
+  if (e.includes('entregado') || e.includes('devoluc') && e.includes('entregada')) return 'entregado';
+
+  // Devuelto
+  if (e.includes('devuelto') || e.includes('devoluc') || e.includes('logística inversa') ||
+      e.includes('logistica inversa')) return 'devuelto';
+
+  // Problema
+  if (e.includes('problema') || e.includes('bloqueado') || e.includes('local cerrado') ||
+      e.includes('espera en oficina') || e.includes('tiempo de retiro') ||
+      e.includes('código desconocido') || e.includes('codigo desconocido') ||
+      e === 'on hold' || e.includes('on hold')) return 'problema';
+
+  // Listo para enviar
+  if (e.includes('listo para enviar') || e.includes('listo para despachar') ||
+      e.includes('disponible en sucursal')) return 'listo';
+
+  // En Camino — todos los estados de tránsito
+  if (e.includes('camino') || e.includes('en ruta') || e.includes('en reparto') ||
+      e.includes('reparto') || e.includes('ingreso a cam') || e.includes('ingreso de inf') ||
+      e.includes('arribado') || e.includes('transf') || e.includes('tránsito') ||
+      e.includes('transito') || e.includes('salida martina') || e.includes('checkpoint') ||
+      e.includes('asignado a ruta') || e.includes('redespachado') || e.includes('reenviado') ||
+      e.includes('solucionado / incidencia') || e.includes('ingreso a hub') ||
+      e === 'cbg' || e === 'cbh' || e === 'ex' || e === 'mr' || e === 'bc' ||
+      e === 'ppb' || e === 'pxx' || e === 'fzp' || e === 'fz' || e === 'dao') return 'camino';
+
+  // Preparación — incluye estados sin info de Blue
+  if (isEstadoPrep(e) || e.includes('generac') || e.includes('listo') ||
+      e.includes('estado starkoms') || e.includes('sin_info') || e.includes('sin info') ||
+      e.includes('asignado') || e.includes('ingreso de inf')) return 'prep';
+
+  return 'prep'; // default: asumir preparación
+}
+
+function badge(est) {
+  const cat = categorizeEstado(est);
+  const e   = String(est||'').toLowerCase();
+  if (cat === 'entregado') {
+    if (e.includes('punto') || e.includes('sucursal')) return `<span class="badge b-ok">Punto Blue</span>`;
+    return `<span class="badge b-ok">Entregado</span>`;
+  }
+  if (cat === 'devuelto')  return `<span class="badge b-danger">Devuelto</span>`;
+  if (cat === 'problema')  {
+    if (e.includes('tiempo de retiro')) return `<span class="badge b-warn">⏳ Retiro vencido</span>`;
+    if (e.includes('on hold'))          return `<span class="badge b-warn">On Hold</span>`;
+    return `<span class="badge b-warn">Problema</span>`;
+  }
+  if (cat === 'listo')     return `<span class="badge b-prep">Listo p/ Enviar</span>`;
+  if (cat === 'camino')    return `<span class="badge b-camino">En Camino</span>`;
+  return `<span class="badge b-prep">Preparación</span>`;
+}
+
+function promesaHTML(row) {
+  const p = row.promesa_entrega;
+  if (!p) return '<span class="p-none">—</span>';
+  // Mostrar solo fecha, sin hora
+  const pShort = String(p).slice(0, 10);
+  const ep = estadoPromesa(row);
+  if (ep === 'vencida') return `<span class="p-late">⏰ ${pShort}</span>`;
+  if (ep === 'riesgo')  return `<span class="p-riesgo">◑ ${pShort}</span>`;
+  return `<span class="p-ok">${pShort}</span>`;
+}
+
+// ─────────────────────────────────────────────────────
+//  SOLUCIONADO
+// ─────────────────────────────────────────────────────
+const SOL_KEY = 'hypnos_sol';
+function getSolMap() {
+  try { return JSON.parse(localStorage.getItem(SOL_KEY) || '{}'); } catch { return {}; }
+}
+function isSolucionado(ref) {
+  const map = getSolMap();
+  return ref in map ? map[ref] : false;
+}
+function isSolFromSheet(r) {
+  const v = String(r.solucionado ?? r.Solucionado ?? '').toLowerCase().trim();
+  return v === 'true' || v === 'verdadero' || v === 'sí' || v === 'si' || v === '1';
+}
+function toggleVerSolucionados(btn) {
+  showSolucionados = !showSolucionados;
+  btn.classList.toggle('active', showSolucionados);
+  renderAll();
+}
+async function toggleSolucionado(ref) {
+  const map = getSolMap();
+  const sol = !isSolucionado(ref);
+  map[ref] = sol;
+  localStorage.setItem(SOL_KEY, JSON.stringify(map));
+
+  const tr = document.querySelector(`tr[data-ref="${CSS.escape(ref)}"]`);
+  if (tr) {
+    const btn = tr.querySelector('.sol-btn');
+    btn.classList.toggle('sol-on', sol);
+    btn.innerHTML = sol ? '&#10003;' : '&#9675;';
+    btn.title = sol ? 'Mostrar' : 'Ocultar';
+    const raw = DATA_RAW.find(r => (r.referencia || r.id) === ref);
+    if (raw) tr.className = rowClass(raw, sol);
+    // Si se marca como solucionado y no se muestran solucionados, desvanece tras 3s
+    if (!showSolucionados && sol) {
+      setTimeout(() => {
+        tr.style.transition = 'opacity .6s, transform .6s';
+        tr.style.opacity = '0';
+        tr.style.transform = 'translateX(8px)';
+        setTimeout(() => renderAll(), 650);
+      }, 3000);
+    }
+  }
+
+  // Escribir al Sheet via Apps Script
+  try {
+    const url = SCRIPT_URL + '?action=setSolucionado&ref=' + encodeURIComponent(ref) + '&val=' + sol;
+    const res = await fetch(url);
+    const j   = await res.json();
+    if (!j.ok) console.warn('[Hypnos] setSolucionado error:', j.error);
+  } catch(e) {
+    console.warn('[Hypnos] setSolucionado fetch error:', e.message);
+  }
+}
+
+// ─────────────────────────────────────────────────────
+//  NOTAS — guardado local + write-back al Sheet
+// ─────────────────────────────────────────────────────
+const NOTA_KEY = 'hypnos_notas';
+let notaTimers = {};
+
+function getNotaMap() {
+  try { return JSON.parse(localStorage.getItem(NOTA_KEY) || '{}'); } catch { return {}; }
+}
+function getNota(ref, row) {
+  const map = getNotaMap();
+  // Prioridad: local override > campo del sheet
+  if (ref in map) return map[ref];
+  return row ? (row.notas || row.Notas || row.NOTAS || '') : '';
+}
+async function saveNota(ref, val) {
+  const map = getNotaMap();
+  map[ref] = val;
+  localStorage.setItem(NOTA_KEY, JSON.stringify(map));
+  // Mostrar indicador
+  const tr = document.querySelector(`tr[data-ref="${CSS.escape(ref)}"]`);
+  const saving = tr ? tr.querySelector('.nota-saving') : null;
+  if (saving) { saving.style.display = 'inline'; }
+  clearTimeout(notaTimers[ref]);
+  notaTimers[ref] = setTimeout(async () => {
+    try {
+      const url = SCRIPT_URL + '?action=setNota&ref=' + encodeURIComponent(ref) + '&val=' + encodeURIComponent(val);
+      const res = await fetch(url);
+      const j   = await res.json();
+      if (!j.ok) console.warn('[Hypnos] setNota error:', j.error);
+    } catch(e) {
+      console.warn('[Hypnos] setNota fetch error:', e.message);
+    }
+    if (saving) saving.style.display = 'none';
+  }, 800);
+}
+
+// ─────────────────────────────────────────────────────
+//  COLUMN GROUP TOGGLE (Excel-style)
+// ─────────────────────────────────────────────────────
+const hiddenColGroups = new Set();
+let expandedRows = new Set();
+
+// ─────────────────────────────────────────────────────
+//  CARGAR FOTOS CON RETRY
+// ─────────────────────────────────────────────────────
+async function loadFotos(grid, urls, attempt = 1) {
+  const MAX = 3;
+  try {
+    const res  = await fetch(SCRIPT_URL + '?action=getFotos&urls=' + encodeURIComponent(urls.join(',')));
+    const data = await res.json();
+    if (!data.ok || !data.fotos?.length) throw new Error('sin fotos');
+    grid.innerHTML = data.fotos.map((src, i) =>
+      `<img class="sku-foto-thumb" src="${src}" loading="lazy"
+            onclick="openLightbox(this.src)" title="Ver foto ${i+1}" style="cursor:zoom-in">`
+    ).join('');
+  } catch(e) {
+    if (attempt < MAX) {
+      grid.innerHTML = `<span class="hist-fecha" style="font-style:italic">reintentando (${attempt}/${MAX})…</span>`;
+      setTimeout(() => loadFotos(grid, urls, attempt + 1), 2000 * attempt);
+    } else {
+      grid.innerHTML = '<span class="hist-fecha" style="color:var(--c-danger)">fotos no disponibles</span>';
+    }
+  }
+}
+function toggleColGroup(group, event) {
+  event.stopPropagation(); // no disparar sort del th
+  const hidden = hiddenColGroups.has(group);
+  if (hidden) hiddenColGroups.delete(group);
+  else hiddenColGroups.add(group);
+
+  // toggle clase en todas las celdas del grupo
+  document.querySelectorAll(`.col-${group}`).forEach(el => {
+    el.classList.toggle('col-hidden', !hidden);
+  });
+  // cambiar botón del header
+  const btn = document.querySelector(`#th-${group} .th-collapse-btn`);
+  if (btn) btn.textContent = hidden ? '−' : '+';
+}
+
+function getSKU(r) {
+  const direct = r.skus || r.SKUs || r.SKUS || r.Skus ||
+                 r.lista_skus || r.listaSkus || r.sku || r.SKU;
+  if (direct) return direct;
+  const k = Object.keys(r).find(k => k.toLowerCase().replace(/[_\s]/g,'').includes('sku'));
+  return k ? r[k] : '—';
+}
+function getColchon(r) {
+  const direct = r.colchon || r.Colchon || r.COLCHON || r.colchón;
+  if (direct) return direct;
+  const k = Object.keys(r).find(k => k.toLowerCase().includes('colch'));
+  return k ? r[k] : '—';
+}
+
+function hasDspr(r) {
+  const skus = String(getSKU(r) || '').toLowerCase();
+  return skus.includes('dspr');
+}
+
+// ─────────────────────────────────────────────────────
+//  SKU EXPAND — DOM directo
+// ─────────────────────────────────────────────────────
+function toggleExpand(ref) {
+  const tr   = document.querySelector(`tr[data-ref="${CSS.escape(ref)}"]`);
+  if (!tr) return;
+  const btn  = tr.querySelector('.expand-btn');
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains('sku-expand-row')) {
+    next.remove();
+    expandedRows.delete(ref);
+    btn.classList.remove('open');
+    btn.innerHTML = '&#9654;';
+  } else {
+    expandedRows.add(ref);
+    btn.classList.add('open');
+    btn.innerHTML = '&#9660;';
+    const raw  = DATA_RAW.find(r => (r.referencia || r.id) === ref);
+    const skus = raw ? getSKU(raw) : '—';
+
+    const chips = String(skus).split(',').map(s => s.trim()).filter(Boolean)
+      .map(s => `<span class="sku-chip">${esc(s)}</span>`).join('') || esc(skus);
+
+    // Fotos de evidencia de entrega (Blue Express)
+    const fotosRaw = raw ? (raw.fotos_evidencia || raw.fotosEvidencia || raw.fotos || raw.photos || '') : '';
+    const fotoUrls = String(fotosRaw).split(',').map(s => s.trim()).filter(s => s.startsWith('http'));
+    const fotosHtml = fotoUrls.length
+      ? `<div class="sku-fotos-row" id="fotos-${esc(ref)}">
+           <span class="sku-label">Evidencia:</span>
+           <div class="sku-fotos-grid" id="fotos-grid-${esc(ref)}">
+             <span class="hist-fecha" style="font-style:italic">cargando fotos…</span>
+           </div>
+         </div>`
+      : '';
+
+    // Historial de estados
+    const histRaw = raw ? (raw.historial_estados || raw.historial || '') : '';
+    const histHtml = histRaw
+      ? `<div class="hist-row">
+           <span class="sku-label">Historial:</span>
+           <div class="hist-list">${
+             histRaw.split(';;').filter(Boolean).map(ev => {
+               const [fecha, estado, desc] = ev.split('|');
+               const hcat = categorizeEstado(estado);
+               const cls = hcat === 'entregado' ? 'ok'
+                 : hcat === 'camino' ? 'camino'
+                 : hcat === 'problema' ? 'danger'
+                 : hcat === 'devuelto' ? 'danger'
+                 : 'prep';
+               return `<div class="hist-item">
+                 <span class="hist-fecha">${esc(fecha||'')}</span>
+                 <span class="hist-badge ${cls}">${esc(estado||'')}</span>
+                 <span class="hist-desc">${esc(desc||'')}</span>
+               </div>`;
+             }).join('')
+           }</div>
+         </div>`
+      : '';
+
+    const skuTr = document.createElement('tr');
+    skuTr.className = 'sku-expand-row';
+    skuTr.innerHTML = `<td></td><td colspan="15">
+      <div class="sku-detail">
+        <div class="sku-detail-inner">
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <span class="sku-label">SKUs:</span>
+            <span class="sku-chips">${chips}</span>
+          </div>
+          ${fotosHtml}
+          ${histHtml}
+        </div>
+      </div></td>`;
+    tr.insertAdjacentElement('afterend', skuTr);
+
+    // Cargar fotos via proxy si hay URLs
+    if (fotoUrls.length) {
+      const grid = document.getElementById(`fotos-grid-${ref}`);
+      if (grid) loadFotos(grid, fotoUrls);
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────
+//  ROW COLOR
+// ─────────────────────────────────────────────────────
+function rowClass(r, sol) {
+  if (sol) return 'row-sol';
+  if (slaVencido(r)) return 'row-prep-late';
+  const cat = categorizeEstado(r.estado_blue);
+  const ep  = estadoPromesa(r);
+  if (ep === 'vencida' && cat !== 'entregado' && cat !== 'devuelto') return 'row-vencida';
+  if (cat === 'problema')  return 'row-problema';
+  if (cat === 'entregado') return 'row-ok';
+  if (cat === 'camino')    return 'row-camino';
+  if (cat === 'prep' || cat === 'listo') return 'row-prep';
+  return '';
+}
+
+// ─────────────────────────────────────────────────────
+//  RENDER TABLE
+// ─────────────────────────────────────────────────────
+function renderTable(rows) {
+  rows = [...rows].sort((a, b) => {
+    let va, vb;
+    if (sortCol === '_lastEstado') {
+      va = lastEstadoDate(a) || '';
+      vb = lastEstadoDate(b) || '';
+      return sortAsc ? va.localeCompare(vb,'es') : vb.localeCompare(va,'es');
+    }
+    va = getField(a, sortCol) || '';
+    vb = getField(b, sortCol) || '';
+    if (['promesa_entrega','fecha_creacion'].includes(sortCol)) {
+      const da = parsePromesa(va) || new Date(va) || new Date(0);
+      const db = parsePromesa(vb) || new Date(vb) || new Date(0);
+      return sortAsc ? da - db : db - da;
+    }
+    if (sortCol === 'total_paid') {
+      return sortAsc ? (Number(va)||0) - (Number(vb)||0) : (Number(vb)||0) - (Number(va)||0);
+    }
+    va = String(va).toLowerCase();
+    vb = String(vb).toLowerCase();
+    return sortAsc ? va.localeCompare(vb,'es') : vb.localeCompare(va,'es');
+  });
+
+  set('table-count', `${rows.length} de ${DATA_RAW.length} pedidos`);
+
+  const tbody = document.getElementById('tbody');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="16"><div class="placeholder">
+      <div class="big" style="opacity:.2">◌</div>
+      <p>Sin resultados para los filtros actuales.</p>
+    </div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => {
+    const ref     = r.referencia || r.id || '—';
+    const track   = r.tracking || '—';
+    const isDspr  = hasDspr(r);
+    const link    = r.link_seguimiento || r.link_se || '';
+    const fechaRaw = String(getField(r,'fecha_creacion')||'');
+    const fechaParts = fechaRaw.split(' ');
+    const fechaHTML = esc(fechaParts[0]) + (fechaParts[1] ? `&nbsp;<span style="color:var(--c-muted)">${esc(fechaParts[1].slice(0,5))}</span>` : '');
+    const stark   = r.envio_starkoms || '—';
+    const blue    = getField(r,'envio_blue') || '—';
+    const region  = getField(r,'region_destino','Region_destino') || '—';
+    const comuna  = r.comuna_destino || '—';
+    const total   = r.total_paid ? '$'+Number(r.total_paid).toLocaleString('es-CL') : '—';
+    const sol     = isSolucionado(ref);
+    const estado  = r.estado_blue || '—';
+    const desc    = r.desc_estado || '—';
+    const nota    = getNota(ref, r);
+    const expanded = expandedRows.has(ref);
+
+    return `<tr class="${rowClass(r, sol)}" data-ref="${esc(ref)}">
+      <td style="text-align:center;padding:0 4px">
+        <button class="expand-btn${expanded?' open':''}" onclick="toggleExpand('${esc(ref)}')">${expanded?'&#9660;':'&#9654;'}</button>
+      </td>
+      <td class="td-ref" style="white-space:nowrap">${esc(ref)}</td>
+      <td class="td-mono">${esc(track)}</td>
+      <td>${link ? `<a class="track-link" href="${link}" target="_blank" style="font-size:1.1rem;line-height:1">&#128279;</a>` : '<span class="td-muted">—</span>'}</td>
+      <td class="td-muted td-nowrap">${fechaHTML}</td>
+      <td>${isDspr && !r.promesa_entrega ? '<span class="p-dspr">📅 Programar envío</span>' : promesaHTML(r)}${blackCyberActive && (() => { const svc = String(r.envio_blue||r.envio_starkoms||'').toUpperCase(); return svc.includes('PRIORITY')||svc.includes('EXPRESS'); })() ? `<span style="font-size:0.85em;background:#FBF5E6;color:var(--c-warn);border-radius:4px;padding:2px 5px;font-weight:700">+${blackCyberDias}d</span>` : ''}</td>
+      <td class="td-svc">${esc(stark)}</td>
+      <td class="td-svc">${esc(blue)}</td>
+      <td class="td-muted">${esc(region)}</td>
+      <td>${esc(comuna)}</td>
+      <td class="td-num">${total}</td>
+      <td style="text-align:center">
+        <button class="sol-btn${sol?' sol-on':''}" onclick="toggleSolucionado('${esc(ref)}')" title="${sol?'Mostrar':'Ocultar'}">${sol?'&#128065;':'&#9675;'}</button>
+      </td>
+      <td>${badge(estado)}<br><span style="font-size:0.82em;color:var(--c-muted)">${esc(lastEstadoDate(r))}</span>${(() => { const pt = prepTimeLabel(r); return pt ? `<br><span style="font-size:0.8em;font-weight:600;color:${pt.startsWith('🔴')?'var(--c-danger)':'var(--c-muted)'}">${pt}</span>` : ''; })()}</td>
+      <td class="td-truncate" title="${esc(desc)}">${esc(desc)}</td>
+      <td style="padding:4px 8px">
+        <textarea class="nota-input" rows="1" placeholder="agregar nota…"
+          onblur="saveNota('${esc(ref)}', this.value)"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();this.blur()}"
+        >${esc(nota)}</textarea>
+      </td>
+      <td style="text-align:center;padding:0 4px">
+        ${(() => { const inProb = getProbRefs().includes(ref); return `<button class="prob-send-btn${inProb?' prob-send-on':''}" onclick="addToProbFromTracking('${esc(ref)}')" title="${inProb?'Ya en Problemas':'Enviar a Problemas'}">⚠</button>`; })()}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function esc(str) {
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function syncHeaderCols() {}
+
+// ─────────────────────────────────────────────────────
+//  TOGGLE COLUMNAS (legacy no-op)
+// ─────────────────────────────────────────────────────
+function toggleCol() {}
+
+// ─────────────────────────────────────────────────────
+//  ESTADO MULTI-TOGGLE
+// ─────────────────────────────────────────────────────
+function toggleDspr(btn) {
+  filterDspr = !filterDspr;
+  btn.classList.toggle('active', filterDspr);
+  renderAll();
+}
+
+function updateDsprBadge() {
+  const n = DATA_RAW.filter(r => hasDspr(r) && !isSolFromSheet(r)).length;
+  const btn = document.getElementById('btn-dspr');
+  if (btn) btn.textContent = n > 0 ? `📅 Prog. (${n})` : '📅 Prog.';
+}
+
+function toggleEstado(btn) {
+  const est = btn.dataset.est;
+  if (activeEstados.has(est)) {
+    activeEstados.delete(est);
+    btn.classList.remove('active');
+  } else {
+    activeEstados.add(est);
+    btn.classList.add('active');
+  }
+  renderAll();
+}
+
+// ─────────────────────────────────────────────────────
+//  RESET
+// ─────────────────────────────────────────────────────
+function setDateRange(range, btn) {
+  const today = new Date();
+  const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const dDesde = document.getElementById('f-desde');
+  const dHasta = document.getElementById('f-hasta');
+  document.querySelectorAll('.fbar-dshort').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (range === 'all') {
+    dDesde.value = ''; dHasta.value = '';
+  } else if (range === 'hoy') {
+    dDesde.value = fmt(today); dHasta.value = fmt(today);
+  } else {
+    const from = new Date(today); from.setDate(from.getDate() - parseInt(range));
+    dDesde.value = fmt(from); dHasta.value = fmt(today);
+  }
+  renderAll();
+}
+
+function onCustomDate() {
+  // Al tocar los inputs manualmente, quitar active de shortcuts
+  document.querySelectorAll('.fbar-dshort').forEach(b => b.classList.remove('active'));
+  renderAll();
+}
+
+function resetAll() {
+  showSolucionados = false;
+  const btnSol = document.getElementById('btn-sol');
+  if (btnSol) btnSol.classList.remove('active');
+  // restaurar chips de estado al default
+  activeEstados.clear();
+  ['En Camino','En Preparación','Problema','__vencida__'].forEach(e => activeEstados.add(e));
+  document.querySelectorAll('.echip').forEach(b => {
+    b.classList.toggle('active', activeEstados.has(b.dataset.est));
+  });
+  document.getElementById('search').value = '';
+  document.getElementById('f-svc').value = '';
+  document.getElementById('f-region').value = '';
+  const fCatEl = document.getElementById('f-cat'); if (fCatEl) fCatEl.value = '';
+  selectedSkus.clear(); updateSkuBtn();
+  document.getElementById('f-promesa').value = '';
+  document.getElementById('f-desde').value = '';
+  document.getElementById('f-hasta').value = '';
+  document.querySelectorAll('.fbar-dshort').forEach(b =>
+    b.classList.toggle('active', b.dataset.range === 'all'));
+  filterDspr = false;
+  const btnDspr = document.getElementById('btn-dspr');
+  if (btnDspr) btnDspr.classList.remove('active');
+  blackCyberActive = false;
+  const btnBC = document.getElementById('btn-blackcyber');
+  if (btnBC) btnBC.classList.remove('active');
+  const inputBC = document.getElementById('input-bc-dias');
+  if (inputBC) inputBC.style.display = 'none';
+  renderAll();
+}
+
+// ─────────────────────────────────────────────────────
+//  TABS
+// ─────────────────────────────────────────────────────
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name === 'problemas') renderProblemas();
+  // Set default dashboard dates on first open
+  if (name === 'problemas') {
+    const dd = document.getElementById('dash-hasta');
+    if (dd && !dd.value) {
+      const now  = new Date();
+      const ago  = new Date(now); ago.setDate(ago.getDate() - 30);
+      const fmtD = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      dd.value = fmtD(now);
+      const ddD = document.getElementById('dash-desde');
+      if (ddD) ddD.value = fmtD(ago);
+    }
+  }
+  if (name === 'mensajes')  buildMessages();
+}
+
+// ─────────────────────────────────────────────────────
+//  PROBLEMAS — GAS-backed in-memory cache
+// ─────────────────────────────────────────────────────
+const PROBLEMAS_OPTS = [
+  '', 'Quiebre físico', 'Pedido Incompleto', 'Pedido Cruzado',
+  'Producto cruzado', 'Quiebre sistémico', 'Demora en Despachar',
+  'Cancelar Pedido', 'Sin Boleta', 'Base de cama rota',
+  'Pedido Dañado', 'Desconocimiento de Entrega',
+  'Tiempo de retiro vencido', 'Dirección incorrecta',
+  'Cliente no contesta', 'Devolución en curso', 'Otro'
+];
+
+// In-memory cache (source of truth = GAS/Sheet)
+let PROB_CACHE = {}; // {ref: {problema, accion, telefono, solucionado, prio, fecha_agregado}}
+let PROB_REFS_ORDER = []; // refs ordered by fecha_agregado desc (newest first)
+
+function getProbMap() { return PROB_CACHE; }
+function getProbData(ref) { return PROB_CACHE[ref] || {}; }
+function getProbRefs() { return PROB_REFS_ORDER; }
+
+// Write-through: updates cache immediately, syncs to GAS in background
+function saveProbField(ref, field, val) {
+  if (!PROB_CACHE[ref]) PROB_CACHE[ref] = {};
+  PROB_CACHE[ref][field] = val;
+  // Sync to GAS (fire and forget)
+  fetch(SCRIPT_URL + '?action=updateProblema&ref=' + encodeURIComponent(ref) + '&field=' + encodeURIComponent(field) + '&val=' + encodeURIComponent(val)).catch(() => {});
+}
+
+let probExpandedRows = new Set();
+
+async function fetchProblemas() {
+  try {
+    const res  = await fetch(SCRIPT_URL + '?action=getProblemas');
+    const json = await res.json();
+    if (!json.ok) return;
+    PROB_CACHE = {};
+    PROB_REFS_ORDER = [];
+    json.data.forEach(row => {
+      const ref = String(row.referencia || '').trim();
+      if (!ref) return;
+      PROB_CACHE[ref] = {
+        problema:      row.problema    || '',
+        accion:        row.accion      || '',
+        telefono:      row.telefono    || '',
+        solucionado:   row.solucionado === true || String(row.solucionado).toLowerCase() === 'true',
+        prio:          row.prio        === true || String(row.prio).toLowerCase() === 'true',
+        fecha_agregado: row.fecha_agregado || ''
+      };
+      PROB_REFS_ORDER.push(ref);
+    });
+    // Sort: newest first by fecha_agregado
+    PROB_REFS_ORDER.sort((a, b) => {
+      const fa = PROB_CACHE[a].fecha_agregado || '';
+      const fb = PROB_CACHE[b].fecha_agregado || '';
+      return fb.localeCompare(fa);
+    });
+    // Migrate from localStorage if GAS returned 0 rows
+    if (PROB_REFS_ORDER.length === 0) {
+      try {
+        const oldRefs = JSON.parse(localStorage.getItem('hypnos_prob_refs') || '[]');
+        const oldMap  = JSON.parse(localStorage.getItem('hypnos_prob') || '{}');
+        if (oldRefs.length > 0) {
+          for (const ref of oldRefs) {
+            const d = oldMap[ref] || {};
+            PROB_REFS_ORDER.push(ref);
+            PROB_CACHE[ref] = { problema: d.problema||'', accion: d.accion||'', telefono: d.telefono||'', solucionado: !!d.solucionado, prio: !!d.prio, fecha_agregado: '' };
+            await fetch(SCRIPT_URL + '?action=addProblema&ref=' + encodeURIComponent(ref)).catch(()=>{});
+            for (const [field, val] of Object.entries(d)) {
+              if (val) await fetch(SCRIPT_URL + '?action=updateProblema&ref=' + encodeURIComponent(ref) + '&field=' + field + '&val=' + encodeURIComponent(val)).catch(()=>{});
+            }
+          }
+          localStorage.removeItem('hypnos_prob_refs');
+          localStorage.removeItem('hypnos_prob');
+          renderProblemas();
+        }
+      } catch(e) {}
+    }
+    renderProblemas();
+  } catch(e) {
+    console.warn('[Problemas] Error cargando:', e);
+  }
+}
+
+// ─────────────────────────────────────────────────────
+//  PROBLEMAS: SKU / CATEGORÍA FILTER
+// ─────────────────────────────────────────────────────
+function getRowSkus(r) {
+  if (!r || r._notFound) return [];
+  const skuRaw = String(r.skus || r.sku || r.items || '');
+  return skuRaw.split(/[,;]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
+}
+
+function probRowMatchesCatSku(r) {
+  const skus = getRowSkus(r);
+  // Category filter
+  if (probFilterCat) {
+    const catMatch = skus.some(sku => {
+      const info = MAESTRA.lookup[sku];
+      const cat = info?.c || '';
+      const fCats = probFilterCat === 'Accesorios' ? ['Accesorios','Botella'] : [probFilterCat];
+      return fCats.includes(cat);
+    });
+    if (!catMatch) return false;
+  }
+  // SKU filter
+  if (probSelectedSkus.size > 0) {
+    if (!skus.some(sku => probSelectedSkus.has(sku))) return false;
+  }
+  return true;
+}
+
+function populateProbCatFilter() {
+  const sel = document.getElementById('prob-f-cat');
+  if (!sel) return;
+  const cats = MAESTRA.cats.filter(c => c !== 'Botella');
+  sel.innerHTML = '<option value="">Categoría</option>' +
+    cats.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
+function onProbCatChange() {
+  const sel = document.getElementById('prob-f-cat');
+  probFilterCat = sel ? sel.value : '';
+  probSelectedSkus.clear();
+  buildProbSkuOptions();
+  updateProbSkuBtn();
+  renderProblemas();
+}
+
+function buildProbSkuOptions() {
+  const list = document.getElementById('prob-sku-list');
+  if (!list) return;
+  // Get SKUs relevant to current prob rows
+  const allRefs = getProbRefs();
+  const allRows = allRefs.map(ref => DATA_RAW.find(r => (r.referencia||r.id||'') === ref) || {referencia:ref,_notFound:true});
+  const skuSet = new Set();
+  allRows.forEach(r => getRowSkus(r).forEach(s => skuSet.add(s)));
+  let skus = [...skuSet].sort();
+  if (probFilterCat) {
+    const fCats = probFilterCat === 'Accesorios' ? ['Accesorios','Botella'] : [probFilterCat];
+    skus = skus.filter(s => { const i = MAESTRA.lookup[s]; return i && fCats.includes(i.c); });
+  }
+  list.innerHTML = skus.length
+    ? skus.map(s => {
+        const info = MAESTRA.lookup[s] || {};
+        const checked = probSelectedSkus.has(s) ? 'checked' : '';
+        return `<label class="sku-option"><input type="checkbox" ${checked} onclick="toggleProbSkuSelection('${s}')"><span class="sku-code">${s}</span><span class="sku-sub">${info.s||''}</span></label>`;
+      }).join('')
+    : '<div style="padding:8px;font-size:.75rem;color:var(--c-muted)">Sin SKUs</div>';
+}
+
+function toggleProbSkuDd(e) {
+  e.stopPropagation();
+  const panel = document.getElementById('prob-sku-dd-panel');
+  if (!panel) return;
+  const isOpen = panel.classList.contains('open');
+  document.querySelectorAll('.sku-dd-panel.open').forEach(p => p.classList.remove('open'));
+  if (!isOpen) {
+    buildProbSkuOptions();
+    panel.classList.add('open');
+    const btn = document.getElementById('prob-sku-dd-btn');
+    if (btn) {
+      const r = btn.getBoundingClientRect();
+      panel.style.top = (r.bottom + 4) + 'px';
+      panel.style.left = r.left + 'px';
+    }
+  }
+}
+
+function toggleProbSkuSelection(sku) {
+  if (probSelectedSkus.has(sku)) probSelectedSkus.delete(sku);
+  else probSelectedSkus.add(sku);
+  updateProbSkuBtn();
+  renderProblemas();
+}
+
+function updateProbSkuBtn() {
+  const btn = document.getElementById('prob-sku-dd-btn');
+  if (!btn) return;
+  btn.textContent = probSelectedSkus.size > 0 ? `SKU (${probSelectedSkus.size})` : 'SKU';
+  btn.classList.toggle('active', probSelectedSkus.size > 0);
+}
+
+function clearProbSkuFilter() {
+  probSelectedSkus.clear();
+  buildProbSkuOptions();
+  updateProbSkuBtn();
+  renderProblemas();
+}
+
+function addToProbFromTracking(ref) {
+  // Add to cache immediately
+  if (!PROB_REFS_ORDER.includes(ref)) {
+    PROB_REFS_ORDER.unshift(ref);
+    PROB_CACHE[ref] = PROB_CACHE[ref] || {};
+    // Sync to GAS
+    fetch(SCRIPT_URL + '?action=addProblema&ref=' + encodeURIComponent(ref)).catch(() => {});
+  }
+  // Update button appearance without re-rendering the whole table
+  const row = document.querySelector(`tr[data-ref="${CSS.escape(ref)}"]`);
+  if (row) {
+    const btn = row.querySelector('.prob-send-btn');
+    if (btn) {
+      btn.classList.add('prob-send-on');
+      btn.title = 'Ya en Problemas';
+    }
+  }
+}
+
+function addProbRow() {
+  const inp = document.getElementById('prob-add-input');
+  if (!inp) return;
+  const val = inp.value.trim();
+  if (!val) return;
+  // Try to find by referencia first, then by tracking
+  let ref = val;
+  const byRef = DATA_RAW.find(r => (r.referencia || r.id || '') === val);
+  if (!byRef) {
+    const byTracking = DATA_RAW.find(r => r.tracking === val);
+    if (byTracking) ref = byTracking.referencia || byTracking.id || val;
+  }
+  // Add to cache immediately
+  if (!PROB_REFS_ORDER.includes(ref)) {
+    PROB_REFS_ORDER.unshift(ref);
+    PROB_CACHE[ref] = PROB_CACHE[ref] || {};
+    // Sync to GAS
+    fetch(SCRIPT_URL + '?action=addProblema&ref=' + encodeURIComponent(ref)).catch(() => {});
+  }
+  inp.value = '';
+  renderProblemas();
+}
+
+function removeProbRow(ref) {
+  PROB_REFS_ORDER = PROB_REFS_ORDER.filter(r => r !== ref);
+  delete PROB_CACHE[ref];
+  fetch(SCRIPT_URL + '?action=removeProblema&ref=' + encodeURIComponent(ref)).catch(() => {});
+  probExpandedRows.delete(ref);
+  renderProblemas();
+  // Un-press the ⚠ button in Tracking if visible
+  const tRow = document.querySelector(`tr[data-ref="${CSS.escape(ref)}"]`);
+  if (tRow) {
+    const btn = tRow.querySelector('.prob-send-btn');
+    if (btn) { btn.classList.remove('prob-send-on'); btn.title = 'Enviar a Problemas'; }
+  }
+}
+
+function probRows() {
+  const refs = getProbRefs();
+  return refs.map(ref => {
+    const row = DATA_RAW.find(r => (r.referencia || r.id || '') === ref);
+    return row || { referencia: ref, _notFound: true };
+  });
+}
+
+function toggleProbSol(ref) {
+  const d = getProbData(ref);
+  const sol = !d.solucionado;
+  saveProbField(ref, 'solucionado', sol);
+  renderProblemas();
+  const url = SCRIPT_URL + '?action=setSolucionado&ref=' + encodeURIComponent(ref) + '&val=' + sol;
+  fetch(url).catch(() => {});
+}
+
+function toggleProbExpand(ref) {
+  const tr   = document.querySelector(`tr[data-prob-ref="${CSS.escape(ref)}"]`);
+  if (!tr) return;
+  const btn  = tr.querySelector('.expand-btn');
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains('prob-expand-row')) {
+    next.remove();
+    probExpandedRows.delete(ref);
+    btn.classList.remove('open');
+    btn.innerHTML = '&#9654;';
+  } else {
+    probExpandedRows.add(ref);
+    btn.classList.add('open');
+    btn.innerHTML = '&#9660;';
+    const raw  = DATA_RAW.find(r => (r.referencia || r.id) === ref);
+    const skus = raw ? getSKU(raw) : '—';
+    const chips = String(skus).split(',').map(s => s.trim()).filter(Boolean)
+      .map(s => `<span class="sku-chip">${esc(s)}</span>`).join('') || esc(skus);
+
+    const fotosRaw2 = raw ? (raw.fotos_evidencia || raw.fotosEvidencia || raw.fotos || raw.photos || '') : '';
+    const fotoUrls2 = String(fotosRaw2).split(',').map(s => s.trim()).filter(s => s.startsWith('http'));
+    const fotosHtml2 = fotoUrls2.length
+      ? `<div class="sku-fotos-row" id="fotos-prob-${esc(ref)}">
+           <span class="sku-label">Evidencia:</span>
+           <div class="sku-fotos-grid" id="fotos-prob-grid-${esc(ref)}">
+             <span class="hist-fecha" style="font-style:italic">cargando fotos…</span>
+           </div>
+         </div>`
+      : '';
+
+    const histRaw2 = raw ? (raw.historial_estados || raw.historial || '') : '';
+    const histHtml2 = histRaw2
+      ? `<div class="hist-row">
+           <span class="sku-label">Historial:</span>
+           <div class="hist-list">${
+             histRaw2.split(';;').filter(Boolean).map(ev => {
+               const [fecha, estado, desc] = ev.split('|');
+               const hcat2 = categorizeEstado(estado);
+               const cls = hcat2 === 'entregado' ? 'ok'
+                 : hcat2 === 'camino' ? 'camino'
+                 : hcat2 === 'problema' ? 'danger'
+                 : hcat2 === 'devuelto' ? 'danger'
+                 : 'prep';
+               return `<div class="hist-item">
+                 <span class="hist-fecha">${esc(fecha||'')}</span>
+                 <span class="hist-badge ${cls}">${esc(estado||'')}</span>
+                 <span class="hist-desc">${esc(desc||'')}</span>
+               </div>`;
+             }).join('')
+           }</div>
+         </div>`
+      : '';
+
+    const skuTr = document.createElement('tr');
+    skuTr.className = 'prob-expand-row sku-expand-row';
+    skuTr.innerHTML = `<td></td><td colspan="15">
+      <div class="sku-detail">
+        <div class="sku-detail-inner">
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <span class="sku-label">SKUs:</span>
+            <span class="sku-chips">${chips}</span>
+          </div>
+          ${fotosHtml2}
+          ${histHtml2}
+        </div>
+      </div></td>`;
+    tr.insertAdjacentElement('afterend', skuTr);
+
+    if (fotoUrls2.length) {
+      const grid2 = document.getElementById(`fotos-prob-grid-${ref}`);
+      if (grid2) loadFotos(grid2, fotoUrls2);
+    }
+  }
+}
+
+function renderProblemas() {
+  const showSol = document.getElementById('prob-show-sol')?.checked;
+  let rows = probRows();
+  if (!showSol) rows = rows.filter(r => {
+    const ref = r.referencia || r.id || '';
+    return !getProbData(ref).solucionado;
+  });
+  // Category/SKU filter
+  if (probFilterCat || probSelectedSkus.size > 0) {
+    rows = rows.filter(r => probRowMatchesCatSku(r));
+  }
+  // Sort: urgentes primero, luego por días desc
+  rows.sort((a, b) => {
+    const ra = a.referencia || a.id || '', rb = b.referencia || b.id || '';
+    const pa = getPrio(ra) ? 1 : 0, pb = getPrio(rb) ? 1 : 0;
+    if (pa !== pb) return pb - pa;
+    const da = daysSince(getField(a,'fecha_creacion')) ?? -1;
+    const db = daysSince(getField(b,'fecha_creacion')) ?? -1;
+    return db - da;
+  });
+
+  const countEl = document.getElementById('prob-count');
+  if (countEl) countEl.textContent = rows.length + ' pedido' + (rows.length !== 1 ? 's' : '');
+
+  const tbody = document.getElementById('prob-tbody');
+  if (!tbody) return;
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="17"><div class="placeholder"><p>Agrega un pedido con el campo de arriba.</p></div></td></tr>';
+    return;
+  }
+
+  const optsHtml = PROBLEMAS_OPTS.map(o =>
+    `<option value="${esc(o)}">${o || '— tipo de problema —'}</option>`
+  ).join('');
+
+  tbody.innerHTML = rows.map(r => {
+    const ref      = r.referencia || r.id || '—';
+    const notFound = !!r._notFound;
+    const d        = getProbData(ref);
+    const sol      = !!d.solucionado;
+    const track    = r.tracking || '—';
+    const link     = r.link_seguimiento || r.link_se || '';
+    const fecha    = String(getField(r,'fecha_creacion')||'').slice(0,10);
+    const blue     = getField(r,'envio_blue') || '—';
+    const region   = getField(r,'region_destino','Region_destino') || '—';
+    const comuna   = r.comuna_destino || '—';
+    const total    = r.total_paid ? '$'+Number(r.total_paid).toLocaleString('es-CL') : '—';
+    const ep       = estadoPromesa(r);
+    const rowCls   = sol ? 'row-sol' : notFound ? '' : ep === 'vencida' ? 'row-vencida' : String(r.estado_blue||'').toLowerCase().includes('problema') ? 'row-problema' : '';
+    const expanded = probExpandedRows.has(ref);
+
+    return `<tr class="${rowCls}" data-prob-ref="${esc(ref)}">
+      <td style="text-align:center;padding:0 4px">
+        <button class="expand-btn${expanded?' open':''}" onclick="toggleProbExpand('${esc(ref)}')">${expanded?'&#9660;':'&#9654;'}</button>
+      </td>
+      <td class="td-ref" style="white-space:nowrap">${esc(ref)}${notFound?'<span style="color:var(--c-muted);font-size:.7rem;margin-left:4px">(sin datos)</span>':''} <button class="prio-btn${getPrio(ref)?' on':''}" data-ref="${esc(ref)}" onclick="togglePrio('${esc(ref)}')" title="${getPrio(ref)?'Quitar urgente':'Marcar urgente'}">🚩</button></td>
+      <td class="td-mono">${notFound?'—':esc(track)}</td>
+      <td>${link ? `<a class="track-link" href="${esc(link)}" target="_blank" style="font-size:1.1rem;line-height:1">&#128279;</a>` : '<span class="td-muted">—</span>'}</td>
+      <td style="text-align:center">${notFound?'<span class="td-muted">—</span>':diasBadge(r.fecha_creacion||getField(r,'fecha_creacion'))}</td>
+      <td class="td-muted td-nowrap">${esc(fecha)}</td>
+      <td>${notFound?'<span class="td-muted">—</span>':promesaHTML(r)}</td>
+      <td class="td-svc">${notFound?'—':esc(blue)}</td>
+      <td class="td-muted">${notFound?'—':esc(region)}</td>
+      <td>${notFound?'—':esc(comuna)}</td>
+      <td class="td-num">${notFound?'—':total}</td>
+      <td style="text-align:center">
+        <button class="prob-sol-btn${sol?' on':''}" onclick="toggleProbSol('${esc(ref)}')">${sol?'✓':'○'}</button>
+      </td>
+      <td>${notFound?'<span class="td-muted">—</span>':`${badge(r.estado_blue)}<br><span style="font-size:0.82em;color:var(--c-muted)">${esc(lastEstadoDate(r))}</span>`}</td>
+      <td class="td-muted td-truncate" style="max-width:140px" title="${esc(r.desc_estado||'')}">${notFound?'—':esc(r.desc_estado||'—')}</td>
+      <td>
+        <select class="prob-select${d.problema?' tiene-valor':''}" onchange="saveProbField('${esc(ref)}','problema',this.value);this.classList.toggle('tiene-valor',!!this.value)">
+          ${optsHtml}
+        </select>
+      </td>
+      <td style="padding:4px 8px;min-width:320px">
+        <textarea class="nota-input" rows="2" placeholder="acción pendiente…" style="min-width:300px;height:40px;border-bottom-color:var(--c-border)"
+          onblur="saveProbField('${esc(ref)}','accion',this.value)"
+          onkeydown="if(event.key==='Enter'&&event.ctrlKey){event.preventDefault();this.blur()}"
+        >${esc(d.accion||'')}</textarea>
+      </td>
+      <td><input class="prob-input" value="${esc(d.telefono||'')}" placeholder="+569…" onblur="saveProbField('${esc(ref)}','telefono',this.value)" style="min-width:110px"></td>
+      <td style="text-align:center;padding:0 4px">
+        <button onclick="removeProbRow('${esc(ref)}')" style="background:none;border:none;cursor:pointer;color:var(--c-muted);font-size:.9rem;padding:4px" title="Quitar">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Restore dropdowns
+  tbody.querySelectorAll('tr[data-prob-ref]').forEach(tr => {
+    const ref = tr.dataset.probRef;
+    const d   = getProbData(ref);
+    const sel = tr.querySelector('.prob-select');
+    if (sel && d.problema) sel.value = d.problema;
+  });
+}
+
+// ─────────────────────────────────────────────────────
+//  MENSAJES
+// ─────────────────────────────────────────────────────
+function carrierId(r) {
+  const svc = String(r.envio_starkoms || r.envio_blue_raw || '').toLowerCase();
+  if (svc.includes('flex') || svc.includes('meli')) return 'Flex';
+  if (svc.includes('paris')) return 'Paris';
+  if (svc.includes('ripley')) return 'Ripley';
+  if (svc.includes('falabella')) return 'Falabella';
+  return null; // Blue Express
+}
+
+function buildMessages() {
+  // Todos los pedidos con problema/retraso, no solucionados
+  const solMap  = getSolMap();
+  const probMap2 = getProbMap();
+  const probs = DATA_RAW.filter(r => {
+    const ref = r.referencia || r.id || '';
+    // localStorage override tiene prioridad sobre el sheet
+    if (ref in solMap) { if (solMap[ref]) return false; }
+    else if (isSolFromSheet(r)) return false;
+    if (probMap2[ref]?.solucionado) return false;
+    const est = String(r.estado_blue || '').toLowerCase();
+    const ep  = estadoPromesa(r);
+    const esProb    = est.includes('problema');
+    const esVencida = ep === 'vencida' && !est.includes('entregado') && !est.includes('devuelto');
+    return esProb || esVencida;
+  });
+
+  if (!probs.length) {
+    const ta = document.getElementById('msg-blue');
+    if (ta) ta.value = '(Sin pedidos con problemas activos)';
+    const c = document.getElementById('msg-blue-count');
+    if (c) c.textContent = '0 pedidos';
+    // Still populate prep section
+    const prepAtrasados0 = DATA_RAW.filter(r => {
+      if (!slaVencido(r)) return false;
+      const ref = r.referencia || r.id || '';
+      if (ref in solMap) return !solMap[ref];
+      if (isSolFromSheet(r)) return false;
+      if (probMap2[ref]?.solucionado) return false;
+      return true;
+    });
+    let msgPrep0 = '';
+    if (prepAtrasados0.length) { msgPrep0 = `🟡 Pedidos atrasados en preparación (${prepAtrasados0.length}):\n`; prepAtrasados0.forEach(r => { const dias = Math.floor(horasEnPrep(r)/24); msgPrep0 += `• Ref ${r.referencia||r.id} — ${dias}d sin despachar\n`; }); }
+    const taPrep0 = document.getElementById('msg-prep-text'); if (taPrep0) taPrep0.value = msgPrep0 || '(Sin pedidos atrasados en preparación)';
+    const cPrep0 = document.getElementById('msg-prep-count'); if (cPrep0) cPrep0.textContent = prepAtrasados0.length ? prepAtrasados0.length + ' pedidos' : '0 pedidos';
+    return;
+  }
+
+  const lines = ['Nos ayudan con los siguientes pedidos:'];
+  probs.forEach(r => {
+    const ref     = r.referencia || r.id || '';
+    const track   = r.tracking || '';
+    const carrier = carrierId(r);
+    if (carrier) {
+      lines.push(`${ref} (${carrier})`);
+    } else {
+      // Blue Express: mostrar referencia + OS tracking si son distintos
+      if (track && track !== ref) {
+        lines.push(`${ref} (OS ${track})`);
+      } else {
+        lines.push(ref);
+      }
+    }
+  });
+
+  const msg = lines.join('\n');
+  const ta  = document.getElementById('msg-blue');
+  if (ta) ta.value = msg;
+  const c = document.getElementById('msg-blue-count');
+  if (c) c.textContent = probs.length + ' pedidos';
+
+  // Preparación atrasada (excluye solucionados/ocultos)
+  const prepAtrasados = DATA_RAW.filter(r => {
+    if (!slaVencido(r)) return false;
+    const ref = r.referencia || r.id || '';
+    if (ref in solMap) return !solMap[ref];
+    if (isSolFromSheet(r)) return false;
+    if (probMap2[ref]?.solucionado) return false;
+    return true;
+  });
+  let msgPrep = '';
+  if (prepAtrasados.length) {
+    msgPrep = `🟡 Pedidos atrasados en preparación (${prepAtrasados.length}):\n`;
+    prepAtrasados.forEach(r => {
+      const dias = Math.floor(horasEnPrep(r)/24);
+      msgPrep += `• Ref ${r.referencia||r.id} — ${dias}d sin despachar\n`;
+    });
+  }
+  const taPrep = document.getElementById('msg-prep-text');
+  if (taPrep) taPrep.value = msgPrep || '(Sin pedidos atrasados en preparación)';
+  const cPrep = document.getElementById('msg-prep-count');
+  if (cPrep) cPrep.textContent = prepAtrasados.length ? prepAtrasados.length + ' pedidos' : '0 pedidos';
+}
+
+function copyMsg(id, btn) {
+  const ta = document.getElementById(id);
+  if (!ta) return;
+  navigator.clipboard.writeText(ta.value).then(() => {
+    btn.textContent = '✓ Copiado';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copiar'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// ─────────────────────────────────────────────────────
+//  PROB SUB-TABS
+// ─────────────────────────────────────────────────────
+function switchProbTab(name, btn) {
+  document.querySelectorAll('.prob-subpanel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.prob-subtab').forEach(b => b.classList.remove('active'));
+  document.getElementById('prob-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name === 'dashboard') renderDashboard();
+}
+
+// ─────────────────────────────────────────────────────
+//  DASHBOARD
+// ─────────────────────────────────────────────────────
+function toISO(ddmmyyyy) {
+  // Convierte DD-MM-YYYY → YYYY-MM-DD para comparar con inputs de fecha
+  const m = String(ddmmyyyy || '').match(/^(\d{2})-(\d{2})-(\d{4})/);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  return String(ddmmyyyy || '').slice(0,10); // ya viene en ISO
+}
+
+function dashRows() {
+  const desde = document.getElementById('dash-desde')?.value || '';
+  const hasta = document.getElementById('dash-hasta')?.value || '';
+  const refs  = getProbRefs();
+  return refs
+    .map(ref => DATA_RAW.find(r => (r.referencia || r.id || '') === ref) || { referencia: ref, _notFound: true })
+    .filter(r => {
+      if (desde || hasta) {
+        const fc = toISO(getField(r,'fecha_creacion') || '');
+        if (desde && fc < desde) return false;
+        if (hasta && fc > hasta) return false;
+      }
+      return true;
+    });
+}
+
+function isSolEffective(r) {
+  // Solo cuenta lo marcado explícitamente en la pestaña Problemas
+  const ref = r.referencia || r.id || '';
+  return !!getProbMap()[ref]?.solucionado;
+}
+
+function renderBarChart(containerId, data, colorFn) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!data.length) { el.innerHTML = '<div class="dash-empty">Sin datos en el período</div>'; return; }
+  const max = data[0].n;
+  el.innerHTML = data.map(d => `
+    <div class="dash-bar-row">
+      <div class="dash-bar-label" title="${esc(d.label)}">${esc(d.label || '—')}</div>
+      <div class="dash-bar-track">
+        <div class="dash-bar-fill ${colorFn ? colorFn(d.label) : ''}"
+             style="width:${max ? Math.round(d.n/max*100) : 0}%"></div>
+      </div>
+      <div class="dash-bar-count">${d.n}</div>
+    </div>`).join('');
+}
+
+function countBy(rows, keyFn) {
+  const map = {};
+  rows.forEach(r => {
+    const k = keyFn(r) || '—';
+    map[k] = (map[k] || 0) + 1;
+  });
+  return Object.entries(map)
+    .map(([label, n]) => ({ label, n }))
+    .sort((a, b) => b.n - a.n);
+}
+
+function renderDashboard() {
+  const rows  = dashRows();
+  const solMap = getSolMap();
+  const probMap = getProbMap();
+
+  const solucionados = rows.filter(r => isSolEffective(r));
+  const pendientes   = rows.filter(r => !isSolEffective(r));
+  const total = rows.length;
+  const nSol  = solucionados.length;
+  const nPend = pendientes.length;
+  const rate  = total ? Math.round(nSol / total * 100) : 0;
+
+  // Date range label
+  const desde = document.getElementById('dash-desde')?.value || '';
+  const hasta = document.getElementById('dash-hasta')?.value || '';
+  const noteEl = document.getElementById('dash-period-note');
+  const fmtDate = iso => iso ? iso.split('-').reverse().join('-') : '';
+  if (noteEl) {
+    noteEl.textContent = desde || hasta
+      ? `${fmtDate(desde) || '…'} → ${fmtDate(hasta) || 'hoy'} · ${total} pedido${total!==1?'s':''}`
+      : `Todos los datos · ${total} pedido${total!==1?'s':''}`;
+  }
+
+  // KPIs
+  const set2 = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  set2('dk-total',    total);
+  set2('dk-total-sub', 'con problema o vencidos');
+  set2('dk-pend',    nPend);
+  set2('dk-pend-sub', 'sin resolver');
+  set2('dk-sol',     nSol);
+  set2('dk-sol-sub', 'marcados como solucionados');
+  set2('dk-rate',    rate + '%');
+
+  // Chart: por tipo de problema (from prob-map)
+  const tipoData = countBy(rows, r => {
+    const ref = r.referencia || r.id || '';
+    return probMap[ref]?.problema || '(sin clasificar)';
+  });
+  renderBarChart('dk-chart-tipo', tipoData, lbl => lbl === '(sin clasificar)' ? 'prep' : '');
+
+  // Chart: por estado blue
+  const estadoData = countBy(rows, r => r.desc_estado || r.estado_blue || '—');
+  const estadoColor = lbl => {
+    const l = lbl.toLowerCase();
+    if (l.includes('devoluci') || l.includes('rechaz')) return 'danger';
+    if (l.includes('nadie') || l.includes('cerrado') || l.includes('acceso')) return 'warn';
+    return '';
+  };
+  renderBarChart('dk-chart-estado', estadoData.slice(0,8), estadoColor);
+
+  // Chart: por región
+  const regionData = countBy(rows, r => getField(r,'region_destino','Region_destino') || '—');
+  renderBarChart('dk-chart-region', regionData.slice(0,8), () => 'warn');
+
+  // Chart: por servicio
+  const svcData = countBy(rows, r => getField(r,'envio_blue') || r.envio_starkoms || '—');
+  renderBarChart('dk-chart-svc', svcData, () => '');
+
+  // Timeline: por día
+  const byDay = {};
+  rows.forEach(r => {
+    const d = String(getField(r,'fecha_creacion')||'').slice(0,10);
+    if (d) byDay[d] = (byDay[d] || 0) + 1;
+  });
+  const days = Object.keys(byDay).sort();
+  const tlEl = document.getElementById('dk-timeline');
+  if (tlEl) {
+    if (!days.length) {
+      tlEl.innerHTML = '<div class="dash-empty" style="width:100%">Sin datos</div>';
+    } else {
+      const maxDay = Math.max(...Object.values(byDay));
+      tlEl.innerHTML = days.map(d => {
+        const n    = byDay[d];
+        const pct  = maxDay ? Math.round(n / maxDay * 100) : 0;
+        const label = d.slice(5); // MM-DD
+        return `<div class="dash-tl-bar-wrap" title="${d}: ${n} pedidos">
+          <div class="dash-tl-bar" style="height:${Math.max(pct,3)}%;width:100%" data-tip="${d}: ${n}"></div>
+          <div class="dash-tl-label">${label}</div>
+        </div>`;
+      }).join('');
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────
+//  COUNTDOWN AUTO-REFRESH
+// ─────────────────────────────────────────────────────
+let nextRefresh = Date.now() + 30*60*1000;
+function updateCountdown() {
+  const el = document.getElementById('refresh-countdown');
+  if (!el) return;
+  const left = Math.max(0, nextRefresh - Date.now());
+  const m = String(Math.floor(left/60000)).padStart(2,'0');
+  const s = String(Math.floor((left%60000)/1000)).padStart(2,'0');
+  el.textContent = `↻ ${m}:${s}`;
+}
+setInterval(updateCountdown, 1000);
+updateCountdown();
+// Reset countdown when data is fetched
+const _origFetch = fetchData;
+// Patch after DOMContentLoaded
+
+// ─────────────────────────────────────────────────────
+//  MODO COMPACTO
+// ─────────────────────────────────────────────────────
+function setDensity(mode, btn) {
+  document.body.classList.remove('compact','ampliado');
+  if (mode !== 'normal') document.body.classList.add(mode);
+  document.querySelectorAll('.density-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+}
+
+// ─────────────────────────────────────────────────────
+//  DÍAS SIN RESOLVER
+// ─────────────────────────────────────────────────────
+function daysSince(ddmmyyyy) {
+  const m = String(ddmmyyyy || '').match(/^(\d{2})-(\d{2})-(\d{4})/);
+  if (!m) return null;
+  const d = new Date(+m[3], +m[2]-1, +m[1]);
+  return Math.floor((todayDate() - d) / (1000*60*60*24));
+}
+function diasBadge(ddmmyyyy) {
+  const n = daysSince(ddmmyyyy);
+  if (n === null) return '<span class="td-muted">—</span>';
+  const cls = n <= 2 ? 'dias-ok' : n <= 6 ? 'dias-warn' : 'dias-danger';
+  return `<span class="dias-badge ${cls}">${n}d</span>`;
+}
+
+// ─────────────────────────────────────────────────────
+//  PRIORIDAD
+// ─────────────────────────────────────────────────────
+function getPrio(ref) { return !!getProbData(ref).prio; }
+function togglePrio(ref) {
+  saveProbField(ref, 'prio', !getPrio(ref));
+  const btn = document.querySelector(`.prio-btn[data-ref="${CSS.escape(ref)}"]`);
+  if (btn) {
+    const on = getPrio(ref);
+    btn.classList.toggle('on', on);
+    btn.title = on ? 'Quitar urgente' : 'Marcar urgente';
+  }
+  // Re-sort visually
+  renderProblemas();
+}
+
+// ─────────────────────────────────────────────────────
+//  QUICK PERIOD CHIPS
+// ─────────────────────────────────────────────────────
+function setPeriod(days, btn) {
+  document.querySelectorAll('.period-chip').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const now   = new Date();
+  const fmtD  = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const hasta = fmtD(now);
+  const dDesde = document.getElementById('dash-desde');
+  const dHasta = document.getElementById('dash-hasta');
+  if (!dHasta || !dDesde) return;
+  if (days === -1) { dDesde.value = ''; dHasta.value = ''; }
+  else if (days === 0) { dDesde.value = hasta; dHasta.value = hasta; }
+  else {
+    const ago = new Date(now); ago.setDate(ago.getDate() - days);
+    dDesde.value = fmtD(ago);
+    dHasta.value = hasta;
+  }
+  renderDashboard();
+}
+
+</script>
+</div><!-- /app-wrapper -->
+
+<!-- LIGHTBOX -->
+<div id="lightbox" onclick="closeLightbox()">
+  <button id="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img id="lightbox-img" src="" onclick="event.stopPropagation()">
+</div>
+<script>
+function openLightbox(src) {
+  const lb  = document.getElementById('lightbox');
+  const img = document.getElementById('lightbox-img');
+  img.src = src;
+  lb.classList.add('open');
+  document.addEventListener('keydown', lbKeyHandler);
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.getElementById('lightbox-img').src = '';
+  document.removeEventListener('keydown', lbKeyHandler);
+}
+function lbKeyHandler(e) { if (e.key === 'Escape') closeLightbox(); }
+</script>
+</body>
+</html>
+                                                                                                                                                               
