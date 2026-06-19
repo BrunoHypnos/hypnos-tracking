@@ -2353,6 +2353,9 @@ function categorizeEstado(raw) {
   const e = String(raw || '').toLowerCase().trim();
   if (!e || e === '—') return 'prep';
 
+  // Entregado a Transporte = preparación (aún no recibido por courier)
+  if (e.includes('entregado a transporte') || e.includes('entregado a courier')) return 'prep';
+
   // Entregado
   if (e.includes('entregado') || e.includes('devoluc') && e.includes('entregada')) return 'entregado';
 
