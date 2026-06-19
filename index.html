@@ -2363,7 +2363,8 @@ function categorizeEstado(raw) {
   // Problema
   if (e.includes('problema') || e.includes('bloqueado') || e.includes('local cerrado') ||
       e.includes('espera en oficina') || e.includes('tiempo de retiro') ||
-      e.includes('código desconocido') || e.includes('codigo desconocido')) return 'problema';
+      e.includes('código desconocido') || e.includes('codigo desconocido') ||
+      e === 'on hold' || e.includes('on hold')) return 'problema';
 
   // Listo para enviar
   if (e.includes('listo para enviar') || e.includes('listo para despachar') ||
@@ -2397,6 +2398,7 @@ function badge(est) {
   if (cat === 'devuelto')  return `<span class="badge b-danger">Devuelto</span>`;
   if (cat === 'problema')  {
     if (e.includes('tiempo de retiro')) return `<span class="badge b-warn">⏳ Retiro vencido</span>`;
+    if (e.includes('on hold'))          return `<span class="badge b-warn">On Hold</span>`;
     return `<span class="badge b-warn">Problema</span>`;
   }
   if (cat === 'listo')     return `<span class="badge b-prep">Listo p/ Enviar</span>`;
